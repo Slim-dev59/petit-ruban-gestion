@@ -1,415 +1,416 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-export interface Creator {
+// Types pour les données
+export interface SaleData {
   id: string
-  name: string
-  commission: number
-  totalSales: number
-  totalItems: number
-  color: string
-  email?: string
-  phone?: string
-  address?: string
-  notes?: string
-}
-
-export interface StockItem {
-  id: string
-  creatorId: string
-  creatorName: string
-  name: string
-  price: number
-  quantity: number
-  category?: string
-  description?: string
-  sku?: string
-  minStock?: number
-  maxStock?: number
-  location?: string
-}
-
-export interface Sale {
-  id: string
-  creatorId: string
-  creatorName: string
-  itemName: string
-  price: number
-  quantity: number
   date: string
   description: string
+  prix: string
+  paiement: string
+  createur: string
   identified: boolean
-  commission?: number
-  totalAmount?: number
-  paymentMethod?: string
-  customerInfo?: string
-  notes?: string
+  month: string // Format YYYY-MM
+}
+
+export interface StockData {
+  id: string
+  article: string
+  price: string
+  quantity: string
+  sku: string
+  createur: string
+  lowStockThreshold: string
+  month: string // Format YYYY-MM
+}
+
+export interface Archive {
+  id: string
+  createur: string
+  periode: string // Format YYYY-MM
+  dateCreation: string
+  statut: "en_attente" | "valide" | "paye"
+  ventes: SaleData[]
+  totalCA: number
+  totalCommission: number
+  netAVerser: number
+  validePar?: string
+  dateValidation?: string
+}
+
+export interface Virement {
+  id: string
+  archiveId: string
+  createur: string
+  montant: number
+  dateVirement: string
+  reference: string
+  banque: string
+  statut: "programme" | "effectue" | "echec"
+  notes: string
+  creePar: string
+  dateCreation: string
 }
 
 export interface Payment {
   id: string
-  creatorId: string
-  creatorName: string
-  amount: number
-  commission: number
-  date: string
-  period: string
-  status: "pending" | "paid" | "cancelled"
-  method?: string
-  reference?: string
-  notes?: string
+  createur: string
+  montant: number
+  dateVirement: string
+  reference: string
+  banque: string
+  notes: string
+  creePar: string
+  dateCreation: string
+  ventesPayees: SaleData[]
 }
 
 export interface Settings {
+  commissionRate: number
   shopName: string
-  shopAddress: string
-  shopPhone: string
-  shopEmail: string
-  defaultCommission: number
-  currency: string
-  taxRate: number
+  autoApplyCommission: boolean
   logo?: string
-  theme: "light" | "dark"
-  language: "fr" | "en"
-}
-
-interface AppState {
-  // Data
-  creators: Creator[]
-  stock: StockItem[]
-  sales: Sale[]
-  payments: Payment[]
-  settings: Settings
-  isAuthenticated: boolean
-
-  // Creator actions
-  addCreator: (creator: Omit<Creator, "id">) => void
-  updateCreator: (id: string, updates: Partial<Creator>) => void
-  deleteCreator: (id: string) => void
-
-  // Stock actions
-  addStockItems: (items: Omit<StockItem, "id">[]) => void
-  updateStockItem: (id: string, updates: Partial<StockItem>) => void
-  deleteStockItem: (id: string) => void
-  bulkUpdateStock: (updates: { id: string; quantity: number }[]) => void
-
-  // Sales actions
-  addSales: (sales: Omit<Sale, "id">[]) => void
-  updateSale: (id: string, updates: Partial<Sale>) => void
-  deleteSale: (id: string) => void
-  reassignSale: (saleId: string, creatorId: string) => void
-  bulkReassignSales: (saleIds: string[], creatorId: string) => void
-
-  // Payment actions
-  addPayment: (payment: Omit<Payment, "id">) => void
-  updatePayment: (id: string, updates: Partial<Payment>) => void
-  deletePayment: (id: string) => void
-  generatePayments: (period: string) => void
-
-  // Settings actions
-  updateSettings: (updates: Partial<Settings>) => void
-
-  // Auth actions
-  setAuthenticated: (auth: boolean) => void
-
-  // Utility functions
-  getCreatorById: (id: string) => Creator | undefined
-  getCreatorByName: (name: string) => Creator | undefined
-  getStockByCreator: (creatorId: string) => StockItem[]
-  getSalesByCreator: (creatorId: string) => Sale[]
-  getSalesByPeriod: (startDate: string, endDate: string) => Sale[]
-  getUnidentifiedSales: () => Sale[]
-  getLowStockItems: () => StockItem[]
-
-  // Data management
-  exportData: () => string
-  importData: (data: string) => boolean
-  clearAllData: () => void
-  getStatistics: () => {
-    totalCreators: number
-    totalStock: number
-    totalSales: number
-    totalRevenue: number
-    unidentifiedSales: number
-    lowStockItems: number
+  stockTemplate: {
+    creatorColumn: string
+    articleColumn: string
+    priceColumn: string
+    quantityColumn: string
+    skuColumn: string
+  }
+  salesTemplate: {
+    descriptionColumn: string
+    priceColumn: string
+    paymentColumn: string
+    dateColumn: string
   }
 }
 
-const generateId = () => Math.random().toString(36).substr(2, 9)
+interface StoreState {
+  // Données par mois
+  salesData: SaleData[]
+  stockData: StockData[]
+  creators: string[]
 
-const colors = [
-  "#3B82F6",
-  "#EF4444",
-  "#10B981",
-  "#F59E0B",
-  "#8B5CF6",
-  "#EC4899",
-  "#06B6D4",
-  "#84CC16",
-  "#F97316",
-  "#6366F1",
-]
+  // Mois sélectionné
+  selectedMonth: string
 
-const defaultSettings: Settings = {
-  shopName: "Petit-Ruban",
-  shopAddress: "",
-  shopPhone: "",
-  shopEmail: "",
-  defaultCommission: 15,
-  currency: "€",
-  taxRate: 20,
-  theme: "light",
-  language: "fr",
+  // Archives et paiements
+  archives: Archive[]
+  virements: Virement[]
+  payments: Payment[]
+
+  // Paramètres
+  settings: Settings
+
+  // État d'authentification
+  isAuthenticated: boolean
+  setAuthenticated: (authenticated: boolean) => void
+
+  // Actions pour les créateurs
+  addCreator: (name: string) => void
+  removeCreator: (name: string) => void
+  removeAllCreators: () => void
+
+  // Actions pour les données
+  setSalesData: (data: SaleData[]) => void
+  setStockData: (data: StockData[]) => void
+  updateSaleCreator: (saleId: string, newCreator: string) => void
+
+  // Actions pour les mois
+  setSelectedMonth: (month: string) => void
+  getAvailableMonths: () => string[]
+
+  // Actions pour les archives
+  createArchive: (createur: string, periode: string) => string
+  validateArchive: (archiveId: string, validePar: string) => void
+
+  // Actions pour les virements
+  addVirement: (virement: Omit<Virement, "id" | "dateCreation">) => void
+  updateVirementStatus: (virementId: string, statut: Virement["statut"]) => void
+
+  // Actions pour les paiements
+  payCreatorAndReset: (createur: string, paymentData: Omit<Payment, "id" | "dateCreation" | "ventesPayees">) => void
+
+  // Getters
+  getSalesForCreator: (createur: string) => SaleData[]
+  getAllSalesForCreator: (createur: string) => SaleData[]
+  getPaidSalesForCreator: (createur: string) => SaleData[]
+  getStockForCreator: (createur: string) => StockData[]
+  getArchivesForCreator: (createur: string) => Archive[]
+  getVirementsForArchive: (archiveId: string) => Virement[]
+  getPaymentsForCreator: (createur: string) => Payment[]
+
+  // Actions pour les paramètres
+  updateSettings: (updates: Partial<Settings>) => void
+
+  // Actions de nettoyage
+  resetAllData: () => void
+  clearStockData: () => void
+  clearSalesData: () => void
 }
 
-export const useStore = create<AppState>()(
+const defaultSettings: Settings = {
+  commissionRate: 1.75,
+  shopName: "Ma Boutique Multi-Créateurs",
+  autoApplyCommission: true,
+  stockTemplate: {
+    creatorColumn: "Item name",
+    articleColumn: "Variations",
+    priceColumn: "Price",
+    quantityColumn: "Quantity",
+    skuColumn: "SKU",
+  },
+  salesTemplate: {
+    descriptionColumn: "Description",
+    priceColumn: "Price",
+    paymentColumn: "Payment method",
+    dateColumn: "Date",
+  },
+}
+
+export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
+      salesData: [],
+      stockData: [],
       creators: [],
-      stock: [],
-      sales: [],
+      selectedMonth: new Date().toISOString().slice(0, 7), // YYYY-MM format
+      archives: [],
+      virements: [],
       payments: [],
       settings: defaultSettings,
       isAuthenticated: false,
 
-      addCreator: (creator) =>
-        set((state) => ({
-          creators: [
-            ...state.creators,
-            {
-              ...creator,
-              id: generateId(),
-              color: colors[state.creators.length % colors.length],
-            },
-          ],
-        })),
-
-      updateCreator: (id, updates) =>
-        set((state) => ({
-          creators: state.creators.map((creator) => (creator.id === id ? { ...creator, ...updates } : creator)),
-        })),
-
-      deleteCreator: (id) =>
-        set((state) => ({
-          creators: state.creators.filter((creator) => creator.id !== id),
-          stock: state.stock.filter((item) => item.creatorId !== id),
-          sales: state.sales.filter((sale) => sale.creatorId !== id),
-          payments: state.payments.filter((payment) => payment.creatorId !== id),
-        })),
-
-      addStockItems: (items) =>
-        set((state) => ({
-          stock: [...state.stock, ...items.map((item) => ({ ...item, id: generateId() }))],
-        })),
-
-      updateStockItem: (id, updates) =>
-        set((state) => ({
-          stock: state.stock.map((item) => (item.id === id ? { ...item, ...updates } : item)),
-        })),
-
-      deleteStockItem: (id) =>
-        set((state) => ({
-          stock: state.stock.filter((item) => item.id !== id),
-        })),
-
-      bulkUpdateStock: (updates) =>
-        set((state) => ({
-          stock: state.stock.map((item) => {
-            const update = updates.find((u) => u.id === item.id)
-            return update ? { ...item, quantity: update.quantity } : item
-          }),
-        })),
-
-      addSales: (sales) => {
-        const newSales = sales.map((sale) => ({
-          ...sale,
-          id: generateId(),
-          totalAmount: sale.price * sale.quantity,
-          commission: sale.commission || get().settings.defaultCommission,
-        }))
-
-        set((state) => ({
-          sales: [...state.sales, ...newSales],
-        }))
-
-        // Mettre à jour les statistiques des créateurs
-        const { creators } = get()
-        const updatedCreators = creators.map((creator) => {
-          const creatorSales = newSales.filter((sale) => sale.creatorId === creator.id)
-          const totalSales = creatorSales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
-          const totalItems = creatorSales.reduce((sum, sale) => sum + sale.quantity, 0)
-
-          return {
-            ...creator,
-            totalSales: creator.totalSales + totalSales,
-            totalItems: creator.totalItems + totalItems,
-          }
-        })
-
-        set({ creators: updatedCreators })
+      setAuthenticated: (authenticated: boolean) => {
+        set({ isAuthenticated: authenticated })
       },
 
-      updateSale: (id, updates) =>
-        set((state) => ({
-          sales: state.sales.map((sale) =>
-            sale.id === id
-              ? {
-                  ...sale,
-                  ...updates,
-                  totalAmount: (updates.price || sale.price) * (updates.quantity || sale.quantity),
-                }
-              : sale,
-          ),
-        })),
-
-      deleteSale: (id) =>
-        set((state) => ({
-          sales: state.sales.filter((sale) => sale.id !== id),
-        })),
-
-      reassignSale: (saleId, creatorId) => {
+      addCreator: (name: string) => {
         const { creators } = get()
-        const creator = creators.find((c) => c.id === creatorId)
-
-        if (creator) {
-          set((state) => ({
-            sales: state.sales.map((sale) =>
-              sale.id === saleId ? { ...sale, creatorId, creatorName: creator.name, identified: true } : sale,
-            ),
-          }))
+        if (!creators.includes(name)) {
+          set({ creators: [...creators, name] })
         }
       },
 
-      bulkReassignSales: (saleIds, creatorId) => {
-        const { creators } = get()
-        const creator = creators.find((c) => c.id === creatorId)
-
-        if (creator) {
-          set((state) => ({
-            sales: state.sales.map((sale) =>
-              saleIds.includes(sale.id) ? { ...sale, creatorId, creatorName: creator.name, identified: true } : sale,
-            ),
-          }))
-        }
+      removeCreator: (name: string) => {
+        const { creators, salesData, stockData } = get()
+        set({
+          creators: creators.filter((c) => c !== name),
+          salesData: salesData.filter((s) => s.createur !== name),
+          stockData: stockData.filter((s) => s.createur !== name),
+        })
       },
 
-      addPayment: (payment) =>
+      removeAllCreators: () => {
+        set({ creators: [] })
+      },
+
+      setSalesData: (data: SaleData[]) => {
+        const { selectedMonth } = get()
+        const monthData = data.map((sale) => ({ ...sale, month: selectedMonth }))
+        const otherMonthsData = get().salesData.filter((s) => s.month !== selectedMonth)
+        set({ salesData: [...otherMonthsData, ...monthData] })
+      },
+
+      setStockData: (data: StockData[]) => {
+        const { selectedMonth } = get()
+        const monthData = data.map((stock) => ({ ...stock, month: selectedMonth }))
+        const otherMonthsData = get().stockData.filter((s) => s.month !== selectedMonth)
+        set({ stockData: [...otherMonthsData, ...monthData] })
+      },
+
+      updateSaleCreator: (saleId: string, newCreator: string) => {
+        const { salesData } = get()
+        const updatedSales = salesData.map((sale) =>
+          sale.id === saleId ? { ...sale, createur: newCreator, identified: true } : sale,
+        )
+        set({ salesData: updatedSales })
+      },
+
+      setSelectedMonth: (month: string) => {
+        set({ selectedMonth: month })
+      },
+
+      getAvailableMonths: () => {
+        const { salesData, stockData } = get()
+        const months = new Set<string>()
+
+        salesData.forEach((sale) => months.add(sale.month))
+        stockData.forEach((stock) => months.add(stock.month))
+
+        return Array.from(months).sort().reverse()
+      },
+
+      createArchive: (createur: string, periode: string) => {
+        const { salesData, settings } = get()
+        const creatorSales = salesData.filter(
+          (sale) => sale.createur === createur && sale.month === periode && sale.identified,
+        )
+
+        const totalCA = creatorSales.reduce((sum, sale) => {
+          const price = Number.parseFloat(sale.prix?.replace(",", ".") || "0")
+          return sum + (isNaN(price) ? 0 : price)
+        }, 0)
+
+        const totalCommission = creatorSales.reduce((sum, sale) => {
+          const price = Number.parseFloat(sale.prix?.replace(",", ".") || "0")
+          if (isNaN(price)) return sum
+
+          const isNotCash =
+            sale.paiement?.toLowerCase() !== "espèces" &&
+            sale.paiement?.toLowerCase() !== "cash" &&
+            sale.paiement?.toLowerCase() !== "liquide"
+          return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
+        }, 0)
+
+        const archive: Archive = {
+          id: Date.now().toString(),
+          createur,
+          periode,
+          dateCreation: new Date().toISOString(),
+          statut: "en_attente",
+          ventes: creatorSales,
+          totalCA,
+          totalCommission,
+          netAVerser: totalCA - totalCommission,
+        }
+
+        set((state) => ({ archives: [...state.archives, archive] }))
+        return archive.id
+      },
+
+      validateArchive: (archiveId: string, validePar: string) => {
+        const { archives } = get()
+        const updatedArchives = archives.map((archive) =>
+          archive.id === archiveId
+            ? {
+                ...archive,
+                statut: "valide" as const,
+                validePar,
+                dateValidation: new Date().toISOString(),
+              }
+            : archive,
+        )
+        set({ archives: updatedArchives })
+      },
+
+      addVirement: (virementData) => {
+        const virement: Virement = {
+          ...virementData,
+          id: Date.now().toString(),
+          dateCreation: new Date().toISOString(),
+        }
+        set((state) => ({ virements: [...state.virements, virement] }))
+      },
+
+      updateVirementStatus: (virementId: string, statut: Virement["statut"]) => {
+        const { virements } = get()
+        const updatedVirements = virements.map((v) => (v.id === virementId ? { ...v, statut } : v))
+        set({ virements: updatedVirements })
+      },
+
+      payCreatorAndReset: (createur: string, paymentData) => {
+        const { salesData, selectedMonth } = get()
+        const creatorSales = salesData.filter(
+          (sale) => sale.createur === createur && sale.month === selectedMonth && sale.identified,
+        )
+
+        const totalAmount = creatorSales.reduce((sum, sale) => {
+          const price = Number.parseFloat(sale.prix?.replace(",", ".") || "0")
+          return sum + (isNaN(price) ? 0 : price)
+        }, 0)
+
+        const payment: Payment = {
+          ...paymentData,
+          id: Date.now().toString(),
+          dateCreation: new Date().toISOString(),
+          montant: totalAmount,
+          ventesPayees: creatorSales,
+        }
+
+        // Supprimer les ventes payées des ventes actives
+        const remainingSales = salesData.filter(
+          (sale) => !(sale.createur === createur && sale.month === selectedMonth && sale.identified),
+        )
+
         set((state) => ({
-          payments: [...state.payments, { ...payment, id: generateId() }],
-        })),
-
-      updatePayment: (id, updates) =>
-        set((state) => ({
-          payments: state.payments.map((payment) => (payment.id === id ? { ...payment, ...updates } : payment)),
-        })),
-
-      deletePayment: (id) =>
-        set((state) => ({
-          payments: state.payments.filter((payment) => payment.id !== id),
-        })),
-
-      generatePayments: (period) => {
-        const { creators, sales, settings } = get()
-        const newPayments: Omit<Payment, "id">[] = []
-
-        creators.forEach((creator) => {
-          const creatorSales = sales.filter(
-            (sale) => sale.creatorId === creator.id && sale.identified && sale.date.startsWith(period),
-          )
-
-          if (creatorSales.length > 0) {
-            const totalAmount = creatorSales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
-            const commission = (creator.commission / 100) * totalAmount
-
-            newPayments.push({
-              creatorId: creator.id,
-              creatorName: creator.name,
-              amount: commission,
-              commission: creator.commission,
-              date: new Date().toISOString().split("T")[0],
-              period,
-              status: "pending",
-            })
-          }
-        })
-
-        set((state) => ({
-          payments: [...state.payments, ...newPayments.map((p) => ({ ...p, id: generateId() }))],
+          payments: [...state.payments, payment],
+          salesData: remainingSales,
         }))
       },
 
-      updateSettings: (updates) =>
+      getSalesForCreator: (createur: string) => {
+        const { salesData, selectedMonth } = get()
+        return salesData.filter((sale) => sale.createur === createur && sale.month === selectedMonth)
+      },
+
+      getAllSalesForCreator: (createur: string) => {
+        const { salesData, payments } = get()
+        const activeSales = salesData.filter((sale) => sale.createur === createur)
+        const paidSales = payments
+          .filter((payment) => payment.createur === createur)
+          .flatMap((payment) => payment.ventesPayees)
+
+        return [...activeSales, ...paidSales]
+      },
+
+      getPaidSalesForCreator: (createur: string) => {
+        const { payments } = get()
+        return payments.filter((payment) => payment.createur === createur).flatMap((payment) => payment.ventesPayees)
+      },
+
+      getStockForCreator: (createur: string) => {
+        const { stockData, selectedMonth } = get()
+        return stockData.filter((stock) => stock.createur === createur && stock.month === selectedMonth)
+      },
+
+      getArchivesForCreator: (createur: string) => {
+        const { archives } = get()
+        return archives.filter((archive) => archive.createur === createur)
+      },
+
+      getVirementsForArchive: (archiveId: string) => {
+        const { virements } = get()
+        return virements.filter((virement) => virement.archiveId === archiveId)
+      },
+
+      getPaymentsForCreator: (createur: string) => {
+        const { payments } = get()
+        return payments.filter((payment) => payment.createur === createur)
+      },
+
+      updateSettings: (updates: Partial<Settings>) => {
         set((state) => ({
           settings: { ...state.settings, ...updates },
-        })),
-
-      setAuthenticated: (auth) => set({ isAuthenticated: auth }),
-
-      getCreatorById: (id) => get().creators.find((creator) => creator.id === id),
-
-      getCreatorByName: (name) => get().creators.find((creator) => creator.name.toLowerCase() === name.toLowerCase()),
-
-      getStockByCreator: (creatorId) => get().stock.filter((item) => item.creatorId === creatorId),
-
-      getSalesByCreator: (creatorId) => get().sales.filter((sale) => sale.creatorId === creatorId),
-
-      getSalesByPeriod: (startDate, endDate) =>
-        get().sales.filter((sale) => sale.date >= startDate && sale.date <= endDate),
-
-      getUnidentifiedSales: () => get().sales.filter((sale) => !sale.identified),
-
-      getLowStockItems: () => get().stock.filter((item) => item.minStock && item.quantity <= item.minStock),
-
-      exportData: () => {
-        const { creators, stock, sales, payments, settings } = get()
-        return JSON.stringify({ creators, stock, sales, payments, settings }, null, 2)
+        }))
       },
 
-      importData: (data) => {
-        try {
-          const parsed = JSON.parse(data)
-          set({
-            creators: parsed.creators || [],
-            stock: parsed.stock || [],
-            sales: parsed.sales || [],
-            payments: parsed.payments || [],
-            settings: { ...defaultSettings, ...parsed.settings },
-          })
-          return true
-        } catch {
-          return false
-        }
-      },
-
-      clearAllData: () =>
+      resetAllData: () => {
         set({
+          salesData: [],
+          stockData: [],
           creators: [],
-          stock: [],
-          sales: [],
+          archives: [],
+          virements: [],
           payments: [],
-        }),
+          settings: defaultSettings,
+        })
+      },
 
-      getStatistics: () => {
-        const { creators, stock, sales } = get()
-        return {
-          totalCreators: creators.length,
-          totalStock: stock.reduce((sum, item) => sum + item.quantity, 0),
-          totalSales: sales.length,
-          totalRevenue: sales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0),
-          unidentifiedSales: sales.filter((sale) => !sale.identified).length,
-          lowStockItems: stock.filter((item) => item.minStock && item.quantity <= item.minStock).length,
-        }
+      clearStockData: () => {
+        const { stockData, selectedMonth } = get()
+        const otherMonthsData = stockData.filter((s) => s.month !== selectedMonth)
+        set({ stockData: otherMonthsData })
+      },
+
+      clearSalesData: () => {
+        const { salesData, selectedMonth } = get()
+        const otherMonthsData = salesData.filter((s) => s.month !== selectedMonth)
+        set({ salesData: otherMonthsData })
       },
     }),
     {
       name: "boutique-storage",
-      partialize: (state) => ({
-        creators: state.creators,
-        stock: state.stock,
-        sales: state.sales,
-        payments: state.payments,
-        settings: state.settings,
-      }),
     },
   ),
 )

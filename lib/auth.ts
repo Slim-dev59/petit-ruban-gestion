@@ -12,12 +12,17 @@ export interface AuthUser {
 }
 
 export async function validateCredentials(username: string, password: string): Promise<boolean> {
+  console.log("Validating credentials for:", username)
+
   if (username !== ADMIN_USERNAME) {
+    console.log("Username mismatch. Expected:", ADMIN_USERNAME, "Got:", username)
     return false
   }
 
   try {
-    return await bcrypt.compare(password, ADMIN_PASSWORD_HASH)
+    const isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH)
+    console.log("Password validation result:", isValid)
+    return isValid
   } catch (error) {
     console.error("Error validating credentials:", error)
     return false
@@ -32,6 +37,7 @@ export function verifyToken(token: string): AuthUser | null {
   try {
     return jwt.verify(token, JWT_SECRET) as AuthUser
   } catch (error) {
+    console.error("Token verification error:", error)
     return null
   }
 }

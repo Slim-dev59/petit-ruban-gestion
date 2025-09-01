@@ -1,24 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Store, Upload, BarChart3, Users, Package, TrendingUp, LogOut, Shield } from "lucide-react"
+import { Store, Upload, Users, Package, TrendingUp, LogOut, Shield, Settings, FileText } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { identifyCreatorFromDescription } from "@/lib/sales-utils"
 import LoginForm from "@/components/login-form"
-import ImportFiles from "@/components/import-files"
-import StockOverview from "@/components/stock-overview"
-import CreatorExtraction from "@/components/creator-extraction"
-import SalesImport from "@/components/sales-import"
-import SalesAnalytics from "@/components/sales-analytics"
+import { ImportManager } from "@/components/import-manager"
+import { SalesManagement } from "@/components/sales-management"
+import { MonthSelector } from "@/components/month-selector"
+import { SettingsPanel } from "@/components/settings-panel"
+import { CreatorManagement } from "@/components/creator-management"
+import { PDFGenerator } from "@/components/pdf-generator"
+import { ArchiveManagement } from "@/components/archive-management"
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("import")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const { addCreator, getCreatorByName, addStockItems, addSales, creators, setAuthenticated } = useStore()
+  const { setAuthenticated } = useStore()
 
   useEffect(() => {
-    // Vérifier l'authentification au chargement
     checkAuth()
   }, [])
 
@@ -26,9 +26,11 @@ export default function Home() {
     try {
       const response = await fetch("/api/auth/check")
       const data = await response.json()
+      console.log("Auth check result:", data)
       setIsAuthenticated(data.authenticated)
       setAuthenticated(data.authenticated)
     } catch (error) {
+      console.error("Auth check error:", error)
       setIsAuthenticated(false)
       setAuthenticated(false)
     } finally {
@@ -37,6 +39,7 @@ export default function Home() {
   }
 
   const handleLogin = (success: boolean) => {
+    console.log("Login result:", success)
     setIsAuthenticated(success)
     setAuthenticated(success)
   }
@@ -48,108 +51,6 @@ export default function Home() {
       setAuthenticated(false)
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error)
-    }
-  }
-
-  const handleStockImport = (data: any[]) => {
-    const stockItems: any[] = []
-
-    data.forEach((row) => {
-      // Logique EXACTE : Item name = créateur, Variations = article
-      const creatorName = row["Item name"] || row["item_name"] || row["creator"] || ""
-      const itemName = row["Variations"] || row["variations"] || row["item"] || row["name"] || ""
-      const price = Number.parseFloat(row["Price"] || row["price"] || "0")
-      const quantity = Number.parseInt(row["Quantity"] || row["quantity"] || row["stock"] || "0")
-
-      if (!creatorName || !itemName) return
-
-      // Créer le créateur s'il n'existe pas
-      let creator = getCreatorByName(creatorName)
-      if (!creator) {
-        addCreator({
-          name: creatorName,
-          commission: 15,
-          totalSales: 0,
-          totalItems: 0,
-          color: "",
-        })
-        creator = getCreatorByName(creatorName)
-      }
-
-      if (creator) {
-        stockItems.push({
-          creatorId: creator.id,
-          creatorName: creator.name,
-          name: itemName,
-          price: price || 0,
-          quantity: quantity || 0,
-          category: row["Category"] || row["category"] || "",
-        })
-      }
-    })
-
-    if (stockItems.length > 0) {
-      addStockItems(stockItems)
-    }
-  }
-
-  const handleSalesImport = (data: any[]) => {
-    const salesItems: any[] = []
-
-    data.forEach((row) => {
-      // Logique EXACTE : analyse des 4 premiers mots de la description
-      const description = row["Description"] || row["description"] || row["item"] || ""
-      const price = Number.parseFloat(row["Price"] || row["price"] || row["amount"] || "0")
-      const quantity = Number.parseInt(row["Quantity"] || row["quantity"] || "1")
-      const date = row["Date"] || row["date"] || new Date().toISOString().split("T")[0]
-
-      if (!description) return
-
-      // Identifier le créateur avec la logique des 4 premiers mots
-      const identifiedCreator = identifyCreatorFromDescription(description, creators)
-
-      if (identifiedCreator) {
-        salesItems.push({
-          creatorId: identifiedCreator.id,
-          creatorName: identifiedCreator.name,
-          itemName: description,
-          price: price || 0,
-          quantity: quantity || 1,
-          date: date,
-          description: description,
-          identified: true,
-        })
-      } else {
-        // Créer "Non identifié" si pas de match
-        let nonIdentifiedCreator = getCreatorByName("Non identifié")
-        if (!nonIdentifiedCreator) {
-          addCreator({
-            name: "Non identifié",
-            commission: 0,
-            totalSales: 0,
-            totalItems: 0,
-            color: "#6B7280",
-          })
-          nonIdentifiedCreator = getCreatorByName("Non identifié")
-        }
-
-        if (nonIdentifiedCreator) {
-          salesItems.push({
-            creatorId: nonIdentifiedCreator.id,
-            creatorName: nonIdentifiedCreator.name,
-            itemName: description,
-            price: price || 0,
-            quantity: quantity || 1,
-            date: date,
-            description: description,
-            identified: false,
-          })
-        }
-      }
-    })
-
-    if (salesItems.length > 0) {
-      addSales(salesItems)
     }
   }
 
@@ -172,10 +73,11 @@ export default function Home() {
 
   const tabs = [
     { id: "import", label: "Import", icon: Upload },
-    { id: "stock", label: "Stock", icon: Package },
-    { id: "creators", label: "Créateurs", icon: Users },
-    { id: "sales", label: "Ventes", icon: TrendingUp },
-    { id: "analytics", label: "Analyses", icon: BarChart3 },
+    { id: "ventes", label: "Ventes", icon: TrendingUp },
+    { id: "createurs", label: "Créateurs", icon: Users },
+    { id: "rapports", label: "Rapports", icon: FileText },
+    { id: "archives", label: "Archives", icon: Package },
+    { id: "parametres", label: "Paramètres", icon: Settings },
   ]
 
   return (
@@ -193,7 +95,9 @@ export default function Home() {
                 <p className="text-xs text-gray-600">Gestion Multi-Créateurs v17</p>
               </div>
             </div>
+
             <div className="flex items-center gap-4">
+              <MonthSelector />
               <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-full">
                 <Shield className="w-4 h-4 text-green-600" />
                 <span className="text-sm font-medium text-green-800">Sécurisé</span>
@@ -237,11 +141,12 @@ export default function Home() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === "import" && <ImportFiles onStockImport={handleStockImport} onSalesImport={handleSalesImport} />}
-        {activeTab === "stock" && <StockOverview />}
-        {activeTab === "creators" && <CreatorExtraction />}
-        {activeTab === "sales" && <SalesImport />}
-        {activeTab === "analytics" && <SalesAnalytics />}
+        {activeTab === "import" && <ImportManager />}
+        {activeTab === "ventes" && <SalesManagement />}
+        {activeTab === "createurs" && <CreatorManagement />}
+        {activeTab === "rapports" && <PDFGenerator />}
+        {activeTab === "archives" && <ArchiveManagement />}
+        {activeTab === "parametres" && <SettingsPanel />}
       </main>
     </div>
   )

@@ -2,6 +2,7 @@
 const nextConfig = {
   experimental: {
     appDir: true,
+    serverComponentsExternalPackages: ["bcryptjs", "jsonwebtoken"],
   },
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
