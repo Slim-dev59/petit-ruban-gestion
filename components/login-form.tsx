@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Shield, Eye, EyeOff, Lock, User } from "lucide-react"
 
@@ -10,8 +9,8 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onLogin }: LoginFormProps) {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
+  const [username, setUsername] = useState("petit-ruban-admin")
+  const [password, setPassword] = useState("admin123")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -20,6 +19,8 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     e.preventDefault()
     setLoading(true)
     setError("")
+
+    console.log("Submitting login with:", { username, password: "***" })
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -30,15 +31,19 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
         body: JSON.stringify({ username, password }),
       })
 
+      console.log("Response status:", response.status)
       const data = await response.json()
+      console.log("Response data:", data)
 
       if (data.success) {
+        console.log("Login successful, calling onLogin(true)")
         onLogin(true)
       } else {
-        setError("Identifiants incorrects")
+        setError(data.message || "Identifiants incorrects")
         onLogin(false)
       }
     } catch (error) {
+      console.error("Login error:", error)
       setError("Erreur de connexion")
       onLogin(false)
     } finally {
@@ -77,7 +82,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="Votre nom d'utilisateur"
+                  placeholder="petit-ruban-admin"
                   required
                 />
               </div>
@@ -95,7 +100,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="Votre mot de passe"
+                  placeholder="admin123"
                   required
                 />
                 <button
@@ -138,6 +143,11 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             <div className="text-center text-xs text-gray-500">
               <p>🔒 Connexion sécurisée avec chiffrement</p>
               <p className="mt-1">Session automatiquement expirée après 24h</p>
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <p className="text-blue-800 font-medium text-sm">Identifiants de test :</p>
+                <p className="text-blue-700 text-xs">Username: petit-ruban-admin</p>
+                <p className="text-blue-700 text-xs">Password: admin123</p>
+              </div>
             </div>
           </div>
         </div>

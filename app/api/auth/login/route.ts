@@ -3,13 +3,18 @@ import { validateCredentials, generateToken } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json()
+    const body = await request.json()
+    console.log("Login attempt with body:", body)
+
+    const { username, password } = body
 
     if (!username || !password) {
+      console.log("Missing credentials")
       return NextResponse.json({ success: false, message: "Username and password required" }, { status: 400 })
     }
 
     const isValid = await validateCredentials(username, password)
+    console.log("Validation result:", isValid)
 
     if (isValid) {
       const user = { username, isAdmin: true }
@@ -25,8 +30,10 @@ export async function POST(request: NextRequest) {
         path: "/",
       })
 
+      console.log("Login successful for:", username)
       return response
     } else {
+      console.log("Invalid credentials for:", username)
       return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
   } catch (error) {
