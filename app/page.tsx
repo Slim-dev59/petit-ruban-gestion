@@ -4,13 +4,7 @@ import { useState, useEffect } from "react"
 import { Store, Upload, Users, Package, TrendingUp, LogOut, Shield, Settings, FileText } from "lucide-react"
 import { useStore } from "@/lib/store"
 import LoginForm from "@/components/login-form"
-import { ImportManager } from "@/components/import-manager"
-import { SalesManagement } from "@/components/sales-management"
 import { MonthSelector } from "@/components/month-selector"
-import { SettingsPanel } from "@/components/settings-panel"
-import { CreatorManagement } from "@/components/creator-management"
-import { PDFGenerator } from "@/components/pdf-generator"
-import { ArchiveManagement } from "@/components/archive-management"
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("import")
@@ -141,12 +135,16 @@ export default function Home() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === "import" && <ImportManager />}
-        {activeTab === "ventes" && <SalesManagement />}
-        {activeTab === "createurs" && <CreatorManagement />}
-        {activeTab === "rapports" && <PDFGenerator />}
-        {activeTab === "archives" && <ArchiveManagement />}
-        {activeTab === "parametres" && <SettingsPanel />}
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Bienvenue dans Petit-Ruban v17</h2>
+          <p className="text-gray-600 mb-8">Système de gestion multi-créateurs avec authentification sécurisée</p>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              Onglet actuel : {tabs.find((t) => t.id === activeTab)?.label}
+            </h3>
+            <p className="text-gray-600">Les composants pour cet onglet seront ajoutés dans les prochaines versions.</p>
+          </div>
+        </div>
       </main>
     </div>
   )

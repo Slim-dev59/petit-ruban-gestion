@@ -1,59 +1,47 @@
 "use client"
 import { Calendar, ChevronDown } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export function MonthSelector() {
   const { currentMonth, setCurrentMonth } = useStore()
 
-  // Générer les 12 derniers mois
-  const generateMonths = () => {
-    const months = []
-    const now = new Date()
+  const generateMonthOptions = () => {
+    const options = []
+    const currentDate = new Date()
 
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const monthKey = date.toISOString().slice(0, 7) // YYYY-MM
+    // Générer les 12 derniers mois
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1)
+      const monthValue = date.toISOString().slice(0, 7) // YYYY-MM
       const monthLabel = date.toLocaleDateString("fr-FR", {
         year: "numeric",
         month: "long",
       })
-
-      months.push({ key: monthKey, label: monthLabel })
+      options.push({ value: monthValue, label: monthLabel })
     }
 
-    return months
+    return options
   }
 
-  const months = generateMonths()
-  const currentMonthLabel =
-    months.find((m) => m.key === currentMonth)?.label ||
-    new Date(currentMonth + "-01").toLocaleDateString("fr-FR", {
-      year: "numeric",
-      month: "long",
-    })
+  const monthOptions = generateMonthOptions()
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2 bg-transparent">
-          <Calendar className="w-4 h-4" />
-          <span className="capitalize">{currentMonthLabel}</span>
-          <ChevronDown className="w-4 h-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {months.map((month) => (
-          <DropdownMenuItem
-            key={month.key}
-            onClick={() => setCurrentMonth(month.key)}
-            className={`capitalize ${month.key === currentMonth ? "bg-blue-50 text-blue-700" : ""}`}
-          >
-            {month.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="relative">
+      <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <Calendar className="w-4 h-4 text-gray-500" />
+        <select
+          value={currentMonth}
+          onChange={(e) => setCurrentMonth(e.target.value)}
+          className="appearance-none bg-transparent border-none outline-none text-sm font-medium text-gray-700 pr-6"
+        >
+          {monthOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2 pointer-events-none" />
+      </div>
+    </div>
   )
 }

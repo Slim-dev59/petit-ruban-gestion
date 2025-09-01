@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Petit-Ruban - Gestion Multi-Créateurs",
-  description: "Application de gestion pour boutique multi-créateurs",
+  description: "Système de gestion pour boutique multi-créateurs",
     generator: 'v0.app'
 }
 

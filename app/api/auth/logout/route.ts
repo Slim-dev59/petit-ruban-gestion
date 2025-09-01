@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 
 export async function POST() {
   try {
-    const cookieStore = cookies()
+    const response = NextResponse.json({ success: true })
 
     // Supprimer le cookie d'authentification
-    cookieStore.set("auth-token", "", {
+    response.cookies.set("auth-token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -14,7 +13,7 @@ export async function POST() {
       path: "/",
     })
 
-    return NextResponse.json({ success: true })
+    return response
   } catch (error) {
     console.error("Logout error:", error)
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })

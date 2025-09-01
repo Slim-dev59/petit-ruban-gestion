@@ -20,7 +20,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     setLoading(true)
     setError("")
 
-    console.log("Submitting login with:", { username, password: "***" })
+    console.log("Attempting login with:", { username, password })
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -31,14 +31,15 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
         body: JSON.stringify({ username, password }),
       })
 
-      console.log("Response status:", response.status)
+      console.log("Login response status:", response.status)
       const data = await response.json()
-      console.log("Response data:", data)
+      console.log("Login response data:", data)
 
       if (data.success) {
-        console.log("Login successful, calling onLogin(true)")
+        console.log("Login successful!")
         onLogin(true)
       } else {
+        console.log("Login failed:", data.message)
         setError(data.message || "Identifiants incorrects")
         onLogin(false)
       }

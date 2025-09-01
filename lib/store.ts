@@ -5,30 +5,28 @@ export interface Creator {
   id: string
   name: string
   commission: number
-  color: string
   isActive: boolean
+  createdAt: string
 }
 
 export interface StockItem {
   id: string
   name: string
+  creator: string
   price: number
   quantity: number
-  creatorId: string
   category?: string
 }
 
 export interface Sale {
   id: string
   itemName: string
+  creator: string
   price: number
-  quantity: number
-  total: number
-  creatorId: string
-  creatorName: string
   commission: number
   date: string
   isValidated: boolean
+  originalData?: any
 }
 
 export interface MonthlyData {
@@ -39,14 +37,13 @@ export interface MonthlyData {
     defaultCommission: number
     stockTemplate: {
       nameColumn: string
+      creatorColumn: string
       priceColumn: string
       quantityColumn: string
-      creatorColumn: string
     }
     salesTemplate: {
-      itemColumn: string
+      nameColumn: string
       priceColumn: string
-      quantityColumn: string
       dateColumn: string
     }
   }
@@ -60,192 +57,272 @@ interface StoreState {
   // Actions
   setCurrentMonth: (month: string) => void
   getCurrentData: () => MonthlyData
-  updateCurrentData: (data: Partial<MonthlyData>) => void
   setAuthenticated: (authenticated: boolean) => void
 
-  // Creator actions
-  addCreator: (creator: Omit<Creator, "id">) => void
+  // Creators
+  addCreator: (creator: Omit<Creator, "id" | "createdAt">) => void
   updateCreator: (id: string, updates: Partial<Creator>) => void
   deleteCreator: (id: string) => void
 
-  // Stock actions
+  // Stock
+  setStock: (stock: StockItem[]) => void
   addStockItem: (item: Omit<StockItem, "id">) => void
   updateStockItem: (id: string, updates: Partial<StockItem>) => void
   deleteStockItem: (id: string) => void
-  setStock: (stock: StockItem[]) => void
 
-  // Sales actions
+  // Sales
+  setSales: (sales: Sale[]) => void
   addSale: (sale: Omit<Sale, "id">) => void
   updateSale: (id: string, updates: Partial<Sale>) => void
   deleteSale: (id: string) => void
-  setSales: (sales: Sale[]) => void
 
-  // Settings actions
+  // Settings
   updateSettings: (settings: Partial<MonthlyData["settings"]>) => void
 }
 
-const defaultData: MonthlyData = {
+const defaultSettings = {
+  defaultCommission: 1.75,
+  stockTemplate: {
+    nameColumn: "Nom",
+    creatorColumn: "Créateur",
+    priceColumn: "Prix",
+    quantityColumn: "Quantité",
+  },
+  salesTemplate: {
+    nameColumn: "Article",
+    priceColumn: "Prix",
+    dateColumn: "Date",
+  },
+}
+
+const getDefaultMonthlyData = (): MonthlyData => ({
   creators: [],
   stock: [],
   sales: [],
-  settings: {
-    defaultCommission: 1.75,
-    stockTemplate: {
-      nameColumn: "Nom",
-      priceColumn: "Prix",
-      quantityColumn: "Quantité",
-      creatorColumn: "Créateur",
-    },
-    salesTemplate: {
-      itemColumn: "Article",
-      priceColumn: "Prix",
-      quantityColumn: "Quantité",
-      dateColumn: "Date",
-    },
-  },
-}
+  settings: defaultSettings,
+})
 
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
-      currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM format
+      currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
       monthlyData: {},
       isAuthenticated: false,
 
-      setCurrentMonth: (month: string) => set({ currentMonth: month }),
+      setCurrentMonth: (month: string) => {
+        set({ currentMonth: month })
+      },
 
       getCurrentData: () => {
         const { currentMonth, monthlyData } = get()
-        return monthlyData[currentMonth] || defaultData
+        return monthlyData[currentMonth] || getDefaultMonthlyData()
       },
 
-      updateCurrentData: (data: Partial<MonthlyData>) => {
+      setAuthenticated: (authenticated: boolean) => {
+        set({ isAuthenticated: authenticated })
+      },
+
+      addCreator: (creator) => {
         const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || defaultData
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
+
+        const newCreator: Creator = {
+          ...creator,
+          id: Date.now().toString(),
+          createdAt: new Date().toISOString(),
+        }
 
         set({
           monthlyData: {
             ...monthlyData,
             [currentMonth]: {
               ...currentData,
-              ...data,
+              creators: [...currentData.creators, newCreator],
             },
           },
         })
       },
 
-      setAuthenticated: (authenticated: boolean) => set({ isAuthenticated: authenticated }),
+      updateCreator: (id, updates) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-      // Creator actions
-      addCreator: (creator) => {
-        const currentData = get().getCurrentData()
-        const newCreator = {
-          ...creator,
-          id: Date.now().toString(),
-        }
-
-        get().updateCurrentData({
-          creators: [...currentData.creators, newCreator],
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              creators: currentData.creators.map((creator) =>
+                creator.id === id ? { ...creator, ...updates } : creator,
+              ),
+            },
+          },
         })
       },
 
-      updateCreator: (id: string, updates: Partial<Creator>) => {
-        const currentData = get().getCurrentData()
-        const updatedCreators = currentData.creators.map((creator) =>
-          creator.id === id ? { ...creator, ...updates } : creator,
-        )
+      deleteCreator: (id) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-        get().updateCurrentData({ creators: updatedCreators })
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              creators: currentData.creators.filter((creator) => creator.id !== id),
+            },
+          },
+        })
       },
 
-      deleteCreator: (id: string) => {
-        const currentData = get().getCurrentData()
-        const filteredCreators = currentData.creators.filter((creator) => creator.id !== id)
+      setStock: (stock) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-        get().updateCurrentData({ creators: filteredCreators })
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              stock,
+            },
+          },
+        })
       },
 
-      // Stock actions
       addStockItem: (item) => {
-        const currentData = get().getCurrentData()
-        const newItem = {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
+
+        const newItem: StockItem = {
           ...item,
           id: Date.now().toString(),
         }
 
-        get().updateCurrentData({
-          stock: [...currentData.stock, newItem],
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              stock: [...currentData.stock, newItem],
+            },
+          },
         })
       },
 
-      updateStockItem: (id: string, updates: Partial<StockItem>) => {
-        const currentData = get().getCurrentData()
-        const updatedStock = currentData.stock.map((item) => (item.id === id ? { ...item, ...updates } : item))
+      updateStockItem: (id, updates) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-        get().updateCurrentData({ stock: updatedStock })
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              stock: currentData.stock.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+            },
+          },
+        })
       },
 
-      deleteStockItem: (id: string) => {
-        const currentData = get().getCurrentData()
-        const filteredStock = currentData.stock.filter((item) => item.id !== id)
+      deleteStockItem: (id) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-        get().updateCurrentData({ stock: filteredStock })
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              stock: currentData.stock.filter((item) => item.id !== id),
+            },
+          },
+        })
       },
 
-      setStock: (stock: StockItem[]) => {
-        get().updateCurrentData({ stock })
+      setSales: (sales) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
+
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              sales,
+            },
+          },
+        })
       },
 
-      // Sales actions
       addSale: (sale) => {
-        const currentData = get().getCurrentData()
-        const newSale = {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
+
+        const newSale: Sale = {
           ...sale,
           id: Date.now().toString(),
         }
 
-        get().updateCurrentData({
-          sales: [...currentData.sales, newSale],
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              sales: [...currentData.sales, newSale],
+            },
+          },
         })
       },
 
-      updateSale: (id: string, updates: Partial<Sale>) => {
-        const currentData = get().getCurrentData()
-        const updatedSales = currentData.sales.map((sale) => (sale.id === id ? { ...sale, ...updates } : sale))
+      updateSale: (id, updates) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-        get().updateCurrentData({ sales: updatedSales })
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              sales: currentData.sales.map((sale) => (sale.id === id ? { ...sale, ...updates } : sale)),
+            },
+          },
+        })
       },
 
-      deleteSale: (id: string) => {
-        const currentData = get().getCurrentData()
-        const filteredSales = currentData.sales.filter((sale) => sale.id !== id)
+      deleteSale: (id) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-        get().updateCurrentData({ sales: filteredSales })
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              sales: currentData.sales.filter((sale) => sale.id !== id),
+            },
+          },
+        })
       },
 
-      setSales: (sales: Sale[]) => {
-        get().updateCurrentData({ sales })
-      },
+      updateSettings: (settings) => {
+        const { currentMonth, monthlyData } = get()
+        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
 
-      // Settings actions
-      updateSettings: (settings: Partial<MonthlyData["settings"]>) => {
-        const currentData = get().getCurrentData()
-
-        get().updateCurrentData({
-          settings: {
-            ...currentData.settings,
-            ...settings,
+        set({
+          monthlyData: {
+            ...monthlyData,
+            [currentMonth]: {
+              ...currentData,
+              settings: { ...currentData.settings, ...settings },
+            },
           },
         })
       },
     }),
     {
       name: "petit-ruban-storage",
-      partialize: (state) => ({
-        currentMonth: state.currentMonth,
-        monthlyData: state.monthlyData,
-        isAuthenticated: state.isAuthenticated,
-      }),
+      version: 1,
     },
   ),
 )

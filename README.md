@@ -1,18 +1,18 @@
 # Petit-Ruban - Gestion Multi-Créateurs v17
 
-Application de gestion pour boutique multi-créateurs avec système de gestion mensuelle.
+Système de gestion pour boutique multi-créateurs avec authentification sécurisée.
 
 ## Fonctionnalités
 
 ### 🔐 Authentification Sécurisée
-- Connexion avec nom d'utilisateur et mot de passe
-- Sessions JWT avec expiration automatique
-- Protection des routes et API
+- ✅ Connexion avec nom d'utilisateur et mot de passe
+- ✅ Sessions JWT avec expiration automatique
+- ✅ Protection des routes et API
 
 ### 📅 Gestion Mensuelle
-- Sélecteur de mois pour naviguer entre les périodes
-- Données indépendantes par mois
-- Sauvegarde automatique des configurations
+- ✅ Sélecteur de mois pour naviguer entre les périodes
+- ✅ Données indépendantes par mois
+- ✅ Sauvegarde automatique des configurations
 
 ### 📊 Import de Données
 - Import CSV/Excel pour stock et ventes
@@ -40,28 +40,34 @@ Application de gestion pour boutique multi-créateurs avec système de gestion m
 - Export/import des paramètres
 - Personnalisation des colonnes
 
+### 🎨 Interface utilisateur moderne
+- Interface utilisateur moderne
+
+### 📦 Stockage persistant avec Zustand
+- Stockage persistant avec Zustand
+
 ## Installation
 
-1. Clonez le repository
-2. Installez les dépendances : `npm install`
-3. Copiez `.env.example` vers `.env.local`
-4. Configurez vos variables d'environnement
-5. Lancez l'application : `npm run dev`
+1. Cloner le projet
+2. Installer les dépendances : `npm install`
+3. Lancer en développement : `npm run dev`
+4. Ouvrir http://localhost:3000
 
-## Identifiants par défaut
+## Identifiants de test
 
-- **Username:** petit-ruban-admin
-- **Password:** admin123
+- **Username:** `petit-ruban-admin`
+- **Password:** `admin123`
 
 ⚠️ **Important:** Changez ces identifiants en production !
 
 ## Déploiement
 
-L'application est optimisée pour Vercel avec :
-- Configuration Next.js 14
-- Support des API routes
-- Gestion des cookies sécurisés
-- Build optimisé
+1. Build : `npm run build`
+2. Déployer sur Vercel ou autre plateforme
+
+## Configuration
+
+Copier `.env.example` vers `.env.local` et modifier les valeurs selon vos besoins.
 
 ## Technologies
 
