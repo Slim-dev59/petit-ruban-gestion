@@ -102,10 +102,6 @@ interface StoreState {
   // Paramètres
   settings: Settings
 
-  // État d'authentification
-  isAuthenticated: boolean
-  setAuthenticated: (authenticated: boolean) => void
-
   // Actions pour les créateurs
   addCreator: (name: string) => void
   removeCreator: (name: string) => void
@@ -179,11 +175,6 @@ export const useStore = create<StoreState>()(
       virements: [],
       payments: [],
       settings: defaultSettings,
-      isAuthenticated: false,
-
-      setAuthenticated: (authenticated: boolean) => {
-        set({ isAuthenticated: authenticated })
-      },
 
       addCreator: (name: string) => {
         const { creators } = get()

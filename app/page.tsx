@@ -26,11 +26,9 @@ export default function Home() {
     try {
       const response = await fetch("/api/auth/check")
       const data = await response.json()
-      console.log("Auth check result:", data)
       setIsAuthenticated(data.authenticated)
       setAuthenticated(data.authenticated)
     } catch (error) {
-      console.error("Auth check error:", error)
       setIsAuthenticated(false)
       setAuthenticated(false)
     } finally {
@@ -39,7 +37,6 @@ export default function Home() {
   }
 
   const handleLogin = (success: boolean) => {
-    console.log("Login result:", success)
     setIsAuthenticated(success)
     setAuthenticated(success)
   }

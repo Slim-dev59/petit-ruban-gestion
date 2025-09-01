@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { Shield, Eye, EyeOff, Lock, User } from "lucide-react"
 
@@ -20,8 +21,6 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     setLoading(true)
     setError("")
 
-    console.log("Attempting login with:", { username, password: "***" })
-
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -31,18 +30,15 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
         body: JSON.stringify({ username, password }),
       })
 
-      console.log("Login response status:", response.status)
       const data = await response.json()
-      console.log("Login response data:", data)
 
       if (data.success) {
         onLogin(true)
       } else {
-        setError(data.message || "Identifiants incorrects")
+        setError("Identifiants incorrects")
         onLogin(false)
       }
     } catch (error) {
-      console.error("Login error:", error)
       setError("Erreur de connexion")
       onLogin(false)
     } finally {
@@ -81,7 +77,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="petit-ruban-admin"
+                  placeholder="Votre nom d'utilisateur"
                   required
                 />
               </div>
@@ -99,7 +95,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="admin123"
+                  placeholder="Votre mot de passe"
                   required
                 />
                 <button
@@ -142,11 +138,6 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             <div className="text-center text-xs text-gray-500">
               <p>🔒 Connexion sécurisée avec chiffrement</p>
               <p className="mt-1">Session automatiquement expirée après 24h</p>
-              <div className="mt-3 p-2 bg-blue-50 rounded-lg">
-                <p className="text-blue-800 font-medium">Identifiants de test :</p>
-                <p className="text-blue-700">Username: petit-ruban-admin</p>
-                <p className="text-blue-700">Password: admin123</p>
-              </div>
             </div>
           </div>
         </div>
