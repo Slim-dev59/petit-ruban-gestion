@@ -1,28 +1,91 @@
-import type { Creator } from "./store"
+export function exportToCSV(data: any[], filename: string) {
+  const csvContent = [
+    Object.keys(data[0]).join(","),
+    ...data.map((row) =>
+      Object.values(row)
+        .map((value) => (typeof value === "string" && value.includes(",") ? `"${value}"` : value))
+        .join(","),
+    ),
+  ].join("\n")
 
-export function identifyCreatorFromDescription(description: string, creators: Creator[]): Creator | null {
-  const desc = description.toLowerCase()
-  const words = desc.split(" ").slice(0, 4) // Analyser les 4 premiers mots
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  const link = document.createElement("a")
+  const url = URL.createObjectURL(blob)
+  link.setAttribute("href", url)
+  link.setAttribute("download", filename)
+  link.style.visibility = "hidden"
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+  }).format(amount)
+}
+
+export function formatDate(date: string | Date): string {
+  const d = new Date(date)
+  return d.toLocaleDateString("fr-FR")
+}
+
+export function parsePrice(priceString: string): number {
+  if (!priceString) return 0
+
+  // Remplacer les virgules par des points pour le parsing
+  const cleanPrice = priceString.toString().replace(",", ".")
+  const parsed = Number.parseFloat(cleanPrice)
+
+  return isNaN(parsed) ? 0 : parsed
+}
+
+export function calculateCommission(price: number, rate: number, paymentMethod: string): number {
+  // Pas de commission sur les paiements en espèces
+  if (
+    paymentMethod?.toLowerCase().includes("espèce") ||
+    paymentMethod?.toLowerCase().includes("cash") ||
+    paymentMethod?.toLowerCase().includes("liquide")
+  ) {
+    return 0
+  }
+
+  return price * (rate / 100)
+}
+
+export function identifyCreatorFromText(text: string, creators: string[]): string {
+  if (!text) return "Non identifié"
+
+  const textLower = text.toLowerCase()
+  const words = textLower.split(/\s+/).slice(0, 5) // Analyser les 5 premiers mots
 
   for (const creator of creators) {
-    const creatorName = creator.name.toLowerCase()
-    const creatorWords = creatorName.split(" ")
+    if (creator === "Non identifié") continue
+
+    const creatorLower = creator.toLowerCase()
+    const creatorWords = creatorLower.split(/\s+/)
 
     // Vérification exacte du nom complet
-    if (words.join(" ").includes(creatorName)) {
+    if (textLower.includes(creatorLower)) {
       return creator
     }
 
     // Vérification par mots individuels
     const matchedWords = creatorWords.filter((word) =>
-      words.some((descWord) => descWord.includes(word) || word.includes(descWord)),
+      words.some(
+        (textWord) =>
+          textWord.includes(word) || word.includes(textWord) || textWord.startsWith(word) || word.startsWith(textWord),
+      ),
     )
 
-    if (matchedWords.length === creatorWords.length) {
+    // Si tous les mots du créateur sont trouvés
+    if (matchedWords.length === creatorWords.length && creatorWords.length > 0) {
       return creator
     }
 
-    // Vérification par initiales si le créateur a plusieurs mots
+    // Vérification par initiales pour les noms composés
     if (creatorWords.length > 1) {
       const initials = creatorWords.map((word) => word[0]).join("")
       if (words.some((word) => word.includes(initials))) {
@@ -31,40 +94,5 @@ export function identifyCreatorFromDescription(description: string, creators: Cr
     }
   }
 
-  return null
-}
-
-export function exportToCSV(data: any[], filename: string) {
-  const csvContent = [
-    Object.keys(data[0]).join(","),
-    ...data.map((row) =>
-      Object.values(row)
-        .map((val) => `"${val}"`)
-        .join(","),
-    ),
-  ].join("\n")
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-  const link = document.createElement("a")
-  const url = URL.createObjectURL(blob)
-
-  link.setAttribute("href", url)
-  link.setAttribute("download", filename)
-  link.style.visibility = "hidden"
-
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
-
-export function calculateCommission(price: number, commissionRate: number): number {
-  return (price * commissionRate) / 100
-}
-
-export function formatCurrency(amount: number, currency = "€"): string {
-  return `${amount.toFixed(2)}${currency}`
-}
-
-export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("fr-FR")
+  return "Non identifié"
 }

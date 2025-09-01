@@ -5,6 +5,12 @@ import { Store, Upload, Users, Package, TrendingUp, LogOut, Shield, Settings, Fi
 import { useStore } from "@/lib/store"
 import LoginForm from "@/components/login-form"
 import { MonthSelector } from "@/components/month-selector"
+import { SalesManagement } from "@/components/sales-management"
+import { ImportManager } from "@/components/import-manager"
+import { SettingsPanel } from "@/components/settings-panel"
+import { CreatorManagement } from "@/components/creator-management"
+import { PDFGenerator } from "@/components/pdf-generator"
+import { ArchiveManagement } from "@/components/archive-management"
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("import")
@@ -74,6 +80,25 @@ export default function Home() {
     { id: "parametres", label: "Paramètres", icon: Settings },
   ]
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "import":
+        return <ImportManager />
+      case "ventes":
+        return <SalesManagement />
+      case "createurs":
+        return <CreatorManagement />
+      case "rapports":
+        return <PDFGenerator />
+      case "archives":
+        return <ArchiveManagement />
+      case "parametres":
+        return <SettingsPanel />
+      default:
+        return <ImportManager />
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -134,18 +159,7 @@ export default function Home() {
       </nav>
 
       {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Bienvenue dans Petit-Ruban v17</h2>
-          <p className="text-gray-600 mb-8">Système de gestion multi-créateurs avec authentification sécurisée</p>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">
-              Onglet actuel : {tabs.find((t) => t.id === activeTab)?.label}
-            </h3>
-            <p className="text-gray-600">Les composants pour cet onglet seront ajoutés dans les prochaines versions.</p>
-          </div>
-        </div>
-      </main>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderTabContent()}</main>
     </div>
   )
 }

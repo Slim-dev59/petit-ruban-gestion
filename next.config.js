@@ -10,7 +10,7 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverComponentsExternalPackages: [],
+    serverComponentsExternalPackages: ["bcryptjs", "jsonwebtoken"],
   },
   webpack: (config) => {
     config.resolve.fallback = {
