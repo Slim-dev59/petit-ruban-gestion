@@ -1,17 +1,17 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/auth"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const token = request.cookies.get("auth-token")?.value
-    console.log("Checking auth with token:", token ? "present" : "missing")
+    const cookieStore = cookies()
+    const token = cookieStore.get("auth-token")?.value
 
     if (!token) {
       return NextResponse.json({ authenticated: false })
     }
 
     const user = verifyToken(token)
-    console.log("Token verification result:", user ? "valid" : "invalid")
 
     if (user) {
       return NextResponse.json({ authenticated: true, user })
