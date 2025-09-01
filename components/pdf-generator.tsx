@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Download, Eye } from "lucide-react"
 import { useStore } from "@/lib/store"
+import { jsPDF } from "jspdf"
 
 export function PDFGenerator() {
   const [selectedCreator, setSelectedCreator] = useState("")
@@ -497,6 +498,14 @@ export function PDFGenerator() {
     }
   }
 
+  const generatePdf = () => {
+    const doc = new jsPDF()
+
+    doc.text("Hello world!", 10, 10)
+
+    doc.save("petit-ruban-report.pdf")
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -546,9 +555,9 @@ export function PDFGenerator() {
               <Eye className="h-4 w-4 mr-2" />
               Aperçu
             </Button>
-            <Button onClick={generatePDF} disabled={!selectedCreator || generating} className="flex-1">
+            <Button onClick={generatePdf} className="flex-1">
               <Download className="h-4 w-4 mr-2" />
-              {generating ? "Génération..." : "Générer PDF"}
+              Générer un rapport
             </Button>
           </div>
         </CardContent>

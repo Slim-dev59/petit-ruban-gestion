@@ -1,40 +1,40 @@
 "use client"
 
 import { useState } from "react"
+import { useStore } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Archive,
-  CheckCircle,
-  Clock,
-  CreditCard,
-  FileArchive,
-  Plus,
-  Send,
-  AlertTriangle,
-  Calendar,
-  Bug,
-  Eye,
-} from "lucide-react"
-import { useStore } from "@/lib/store"
+import { Edit2, Trash2, Plus, Check, X, Users } from "lucide-react"
+import { Archive, CheckCircle, Clock, CreditCard, FileArchive, Send, AlertTriangle, Eye } from "lucide-react"
 
 export function ArchiveManagement() {
+  const {
+    getCurrentData,
+    addCreator,
+    updateCreator,
+    deleteCreator,
+    creators,
+    archives,
+    virements,
+    salesData,
+    createArchive,
+    validateArchive,
+    addVirement,
+    updateVirementStatus,
+    getArchivesForCreator,
+    getVirementsForArchive,
+    getSalesForCreator,
+  } = useStore()
+  const currentData = getCurrentData()
+  const [isAdding, setIsAdding] = useState(false)
+  const [newCreatorName, setNewCreatorName] = useState("")
+  const [newCreatorCommission, setNewCreatorCommission] = useState(1.75)
+  const [editingCreator, setEditingCreator] = useState<string | null>(null)
+  const [editValues, setEditValues] = useState<{ name: string; commission: number }>({ name: "", commission: 1.75 })
   const [selectedCreator, setSelectedCreator] = useState("")
   const [selectedPeriod, setSelectedPeriod] = useState("")
   const [showCreateArchive, setShowCreateArchive] = useState(false)
@@ -48,20 +48,6 @@ export function ArchiveManagement() {
     banque: "",
     notes: "",
   })
-
-  const {
-    creators,
-    archives,
-    virements,
-    salesData,
-    createArchive,
-    validateArchive,
-    addVirement,
-    updateVirementStatus,
-    getArchivesForCreator,
-    getVirementsForArchive,
-    getSalesForCreator,
-  } = useStore()
 
   // Générer les options de période (12 derniers mois)
   const generatePeriodOptions = () => {
@@ -234,27 +220,31 @@ export function ArchiveManagement() {
     switch (statut) {
       case "en_attente":
         return (
-          <Badge variant="secondary">
+          <div className="bg-orange-100 text-orange-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-orange-200 dark:text-orange-900">
             <Clock className="h-3 w-3 mr-1" />
             En attente
-          </Badge>
+          </div>
         )
       case "valide":
         return (
-          <Badge variant="default">
+          <div className="bg-blue-100 text-blue-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-900">
             <CheckCircle className="h-3 w-3 mr-1" />
             Validé
-          </Badge>
+          </div>
         )
       case "paye":
         return (
-          <Badge variant="default" className="bg-green-600">
+          <div className="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-200 dark:text-green-900">
             <CreditCard className="h-3 w-3 mr-1" />
             Payé
-          </Badge>
+          </div>
         )
       default:
-        return <Badge variant="outline">{statut}</Badge>
+        return (
+          <div className="bg-gray-100 text-gray-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-200 dark:text-gray-900">
+            {statut}
+          </div>
+        )
     }
   }
 
@@ -262,407 +252,462 @@ export function ArchiveManagement() {
     switch (statut) {
       case "programme":
         return (
-          <Badge variant="secondary">
+          <div className="bg-orange-100 text-orange-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-orange-200 dark:text-orange-900">
             <Clock className="h-3 w-3 mr-1" />
             Programmé
-          </Badge>
+          </div>
         )
       case "effectue":
         return (
-          <Badge variant="default" className="bg-green-600">
+          <div className="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-200 dark:text-green-900">
             <CheckCircle className="h-3 w-3 mr-1" />
             Effectué
-          </Badge>
+          </div>
         )
       case "echec":
         return (
-          <Badge variant="destructive">
+          <div className="bg-red-100 text-red-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-200 dark:text-red-900">
             <AlertTriangle className="h-3 w-3 mr-1" />
             Échec
-          </Badge>
+          </div>
         )
       default:
-        return <Badge variant="outline">{statut}</Badge>
+        return (
+          <div className="bg-gray-100 text-gray-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-200 dark:text-gray-900">
+            {statut}
+          </div>
+        )
     }
   }
 
   const periodOptions = generatePeriodOptions()
 
+  const handleAddCreator = () => {
+    addCreator({
+      name: newCreatorName,
+      commission: newCreatorCommission,
+      isActive: true,
+    })
+    setIsAdding(false)
+    setNewCreatorName("")
+    setNewCreatorCommission(1.75)
+  }
+
+  const handleEditCreator = (creator: any) => {
+    setEditingCreator(creator.id)
+    setEditValues({ name: creator.name, commission: creator.commission })
+  }
+
+  const handleSaveEdit = (creatorId: string) => {
+    updateCreator(creatorId, {
+      name: editValues.name,
+      commission: editValues.commission,
+    })
+    setEditingCreator(null)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingCreator(null)
+    setEditValues({ name: "", commission: 1.75 })
+  }
+
+  const handleDeleteCreator = (creatorId: string) => {
+    deleteCreator(creatorId)
+  }
+
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="archives" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="archives">Gestion des archives</TabsTrigger>
-          <TabsTrigger value="debug">🐛 Debug des données</TabsTrigger>
-        </TabsList>
+      {/* En-tête */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Gestion des Créateurs</h2>
+          <p className="text-gray-600">Ajoutez, modifiez ou supprimez les créateurs de votre boutique</p>
+        </div>
+      </div>
 
-        <TabsContent value="archives" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Archive className="h-5 w-5" />
-                Gestion des archives mensuelles
-              </CardTitle>
-              <CardDescription>
-                Archivez et validez les ventes mensuelles par créateur, gérez les virements et la traçabilité
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => setShowCreateArchive(true)} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
-                Créer une nouvelle archive
-              </Button>
-            </CardContent>
-          </Card>
+      {/* Ajout d'un créateur */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Ajouter un Créateur</CardTitle>
+          <CardDescription>Entrez les informations du nouveau créateur</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isAdding ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="creatorName">Nom du créateur</Label>
+                <Input
+                  id="creatorName"
+                  value={newCreatorName}
+                  onChange={(e) => setNewCreatorName(e.target.value)}
+                  placeholder="Nom du créateur"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="creatorCommission">Commission (%)</Label>
+                <Input
+                  id="creatorCommission"
+                  type="number"
+                  step="0.01"
+                  value={newCreatorCommission}
+                  onChange={(e) => setNewCreatorCommission(Number.parseFloat(e.target.value))}
+                  placeholder="1.75"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setIsAdding(false)}>
+                  Annuler
+                </Button>
+                <Button onClick={handleAddCreator}>Ajouter</Button>
+              </div>
+            </>
+          ) : (
+            <Button onClick={() => setIsAdding(true)} className="w-full">
+              <Plus className="w-4 h-4 mr-2" />
+              Ajouter un créateur
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
-          {/* Statistiques générales */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <FileArchive className="h-4 w-4" />
-                  Archives totales
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{archives.length}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  En attente
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">
-                  {archives.filter((a) => a.statut === "en_attente").length}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Validées
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  {archives.filter((a) => a.statut === "valide").length}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  Payées
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {archives.filter((a) => a.statut === "paye").length}
-                </div>
-              </CardContent>
-            </Card>
+      {/* Liste des créateurs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Liste des Créateurs</CardTitle>
+          <CardDescription>Visualisez et modifiez les créateurs existants</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nom</TableHead>
+                  <TableHead>Commission</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {currentData.creators.map((creator) => (
+                  <TableRow key={creator.id}>
+                    <TableCell className="font-medium">
+                      {editingCreator === creator.id ? (
+                        <Input
+                          value={editValues.name}
+                          onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                        />
+                      ) : (
+                        creator.name
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingCreator === creator.id ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editValues.commission}
+                          onChange={(e) =>
+                            setEditValues({ ...editValues, commission: Number.parseFloat(e.target.value) })
+                          }
+                        />
+                      ) : (
+                        `${creator.commission}%`
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {editingCreator === creator.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleSaveEdit(creator.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Check className="w-4 h-4 text-green-600" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0">
+                              <X className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditCreator(creator)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteCreator(creator.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
 
-          {/* Liste des archives */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Archives existantes</CardTitle>
-              <CardDescription>Gérez vos archives mensuelles et leurs virements associés</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Créateur</TableHead>
-                    <TableHead>Période</TableHead>
-                    <TableHead>Ventes</TableHead>
-                    <TableHead>CA</TableHead>
-                    <TableHead>Commission</TableHead>
-                    <TableHead>Net à verser</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {archives
-                    .sort((a, b) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime())
-                    .map((archive) => {
-                      const virements = getVirementsForArchive(archive.id)
-                      const [year, month] = archive.periode.split("-")
-                      const periodLabel = new Date(
-                        Number.parseInt(year),
-                        Number.parseInt(month) - 1,
-                      ).toLocaleDateString("fr-FR", {
-                        year: "numeric",
-                        month: "long",
-                      })
-
-                      return (
-                        <TableRow key={archive.id}>
-                          <TableCell className="font-medium">{archive.createur}</TableCell>
-                          <TableCell>{periodLabel}</TableCell>
-                          <TableCell>{archive.ventes.length}</TableCell>
-                          <TableCell className="font-medium">{archive.totalCA.toFixed(2)}€</TableCell>
-                          <TableCell className="text-red-600">{archive.totalCommission.toFixed(2)}€</TableCell>
-                          <TableCell className="font-medium text-green-600">{archive.netAVerser.toFixed(2)}€</TableCell>
-                          <TableCell>{getStatusBadge(archive.statut)}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              {archive.statut === "en_attente" && (
-                                <Button size="sm" onClick={() => handleValidateArchive(archive.id)}>
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Valider
-                                </Button>
-                              )}
-                              {archive.statut === "valide" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedArchiveId(archive.id)
-                                    setVirementData({ ...virementData, montant: archive.netAVerser.toString() })
-                                    setShowAddVirement(true)
-                                  }}
-                                  className="bg-transparent"
-                                >
-                                  <Send className="h-3 w-3 mr-1" />
-                                  Virer
-                                </Button>
-                              )}
-                              {virements.length > 0 && (
-                                <Badge variant="outline" className="text-xs">
-                                  {virements.length} virement(s)
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Historique des virements */}
-          {virements.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Historique des virements
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Créateur</TableHead>
-                      <TableHead>Montant</TableHead>
-                      <TableHead>Référence</TableHead>
-                      <TableHead>Banque</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Notes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {virements
-                      .sort((a, b) => new Date(b.dateVirement).getTime() - new Date(a.dateVirement).getTime())
-                      .map((virement) => (
-                        <TableRow key={virement.id}>
-                          <TableCell>{new Date(virement.dateVirement).toLocaleDateString("fr-FR")}</TableCell>
-                          <TableCell className="font-medium">{virement.createur}</TableCell>
-                          <TableCell className="font-medium">{virement.montant.toFixed(2)}€</TableCell>
-                          <TableCell className="font-mono text-sm">{virement.reference}</TableCell>
-                          <TableCell>{virement.banque}</TableCell>
-                          <TableCell>{getVirementStatusBadge(virement.statut)}</TableCell>
-                          <TableCell className="max-w-xs truncate" title={virement.notes}>
-                            {virement.notes}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+          {currentData.creators.length === 0 && (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">Aucun créateur trouvé</p>
+              <p className="text-sm text-gray-400">Ajoutez des créateurs pour commencer</p>
+            </div>
           )}
-        </TabsContent>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="debug" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bug className="h-5 w-5" />
-                Debug des données de ventes
-              </CardTitle>
-              <CardDescription>
-                Analysez les données pour comprendre pourquoi les ventes ne sont pas trouvées
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Données actuelles :</strong> {salesData.length} ventes totales, {creators.length} créateurs
-                  configurés
-                </AlertDescription>
-              </Alert>
+      {/* Gestion des archives */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Archive className="h-5 w-5" />
+            Gestion des archives mensuelles
+          </CardTitle>
+          <CardDescription>
+            Archivez et validez les ventes mensuelles par créateur, gérez les virements et la traçabilité
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => setShowCreateArchive(true)} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Créer une nouvelle archive
+          </Button>
+        </CardContent>
+      </Card>
 
-              {/* Échantillon des ventes */}
-              <div className="space-y-2">
-                <h4 className="font-medium">Échantillon des ventes (5 premières) :</h4>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date brute</TableHead>
-                      <TableHead>Créateur</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Prix</TableHead>
-                      <TableHead>Paiement</TableHead>
+      {/* Statistiques générales */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <FileArchive className="h-4 w-4" />
+              Archives totales
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{archives.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              En attente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {archives.filter((a) => a.statut === "en_attente").length}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Validées
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {archives.filter((a) => a.statut === "valide").length}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Payées
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {archives.filter((a) => a.statut === "paye").length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Liste des archives */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Archives existantes</CardTitle>
+          <CardDescription>Gérez vos archives mensuelles et leurs virements associés</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Créateur</TableHead>
+                <TableHead>Période</TableHead>
+                <TableHead>Ventes</TableHead>
+                <TableHead>CA</TableHead>
+                <TableHead>Commission</TableHead>
+                <TableHead>Net à verser</TableHead>
+                <TableHead>Statut</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {archives
+                .sort((a, b) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime())
+                .map((archive) => {
+                  const virements = getVirementsForArchive(archive.id)
+                  const [year, month] = archive.periode.split("-")
+                  const periodLabel = new Date(Number.parseInt(year), Number.parseInt(month) - 1).toLocaleDateString(
+                    "fr-FR",
+                    {
+                      year: "numeric",
+                      month: "long",
+                    },
+                  )
+
+                  return (
+                    <TableRow key={archive.id}>
+                      <TableCell className="font-medium">{archive.createur}</TableCell>
+                      <TableCell>{periodLabel}</TableCell>
+                      <TableCell>{archive.ventes.length}</TableCell>
+                      <TableCell className="font-medium">{archive.totalCA.toFixed(2)}€</TableCell>
+                      <TableCell className="text-red-600">{archive.totalCommission.toFixed(2)}€</TableCell>
+                      <TableCell className="font-medium text-green-600">{archive.netAVerser.toFixed(2)}€</TableCell>
+                      <TableCell>{getStatusBadge(archive.statut)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {archive.statut === "en_attente" && (
+                            <Button size="sm" onClick={() => handleValidateArchive(archive.id)}>
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Valider
+                            </Button>
+                          )}
+                          {archive.statut === "valide" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedArchiveId(archive.id)
+                                setVirementData({ ...virementData, montant: archive.netAVerser.toString() })
+                                setShowAddVirement(true)
+                              }}
+                              className="bg-transparent"
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              Virer
+                            </Button>
+                          )}
+                          {virements.length > 0 && (
+                            <div className="bg-gray-100 text-gray-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-200 dark:text-gray-900">
+                              {virements.length} virement(s)
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {salesData.slice(0, 5).map((sale, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-mono text-sm">{sale.date}</TableCell>
-                        <TableCell>{sale.createur}</TableCell>
-                        <TableCell>{sale.description}</TableCell>
-                        <TableCell>{sale.prix}€</TableCell>
-                        <TableCell>{sale.paiement}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  )
+                })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-              {/* Test de filtrage */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Test de filtrage par période :</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Créateur</Label>
-                    <Select value={selectedCreator} onValueChange={setSelectedCreator}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner un créateur" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {creators.map((creator) => (
-                          <SelectItem key={creator} value={creator}>
-                            {creator}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Période</Label>
-                    <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner une période" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {periodOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {selectedCreator && selectedPeriod && (
-                  <Button
-                    onClick={() => {
-                      const debugSales = debugSalesForPeriod(selectedCreator, selectedPeriod)
-                      alert(`${debugSales.length} ventes trouvées. Consultez la console pour les détails.`)
-                    }}
-                    variant="outline"
-                    className="bg-transparent"
-                  >
-                    <Bug className="h-4 w-4 mr-2" />
-                    Tester le filtrage (voir console)
-                  </Button>
-                )}
-              </div>
-
-              {/* Répartition par créateur */}
-              <div className="space-y-2">
-                <h4 className="font-medium">Répartition des ventes par créateur :</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {creators.map((creator) => {
-                    const creatorSales = getSalesForCreator(creator)
-                    return (
-                      <div key={creator} className="p-2 border rounded">
-                        <div className="font-medium text-sm">{creator}</div>
-                        <div className="text-xs text-muted-foreground">{creatorSales.length} ventes</div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Historique des virements */}
+      {virements.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Historique des virements
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Créateur</TableHead>
+                  <TableHead>Montant</TableHead>
+                  <TableHead>Référence</TableHead>
+                  <TableHead>Banque</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Notes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {virements
+                  .sort((a, b) => new Date(b.dateVirement).getTime() - new Date(a.dateVirement).getTime())
+                  .map((virement) => (
+                    <TableRow key={virement.id}>
+                      <TableCell>{new Date(virement.dateVirement).toLocaleDateString("fr-FR")}</TableCell>
+                      <TableCell className="font-medium">{virement.createur}</TableCell>
+                      <TableCell className="font-medium">{virement.montant.toFixed(2)}€</TableCell>
+                      <TableCell className="font-mono text-sm">{virement.reference}</TableCell>
+                      <TableCell>{virement.banque}</TableCell>
+                      <TableCell>{getVirementStatusBadge(virement.statut)}</TableCell>
+                      <TableCell className="max-w-xs truncate" title={virement.notes}>
+                        {virement.notes}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Dialog pour créer une archive */}
-      <Dialog open={showCreateArchive} onOpenChange={setShowCreateArchive}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Créer une nouvelle archive</DialogTitle>
-            <DialogDescription>
-              Sélectionnez un créateur et une période pour archiver les ventes mensuelles
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Créateur</Label>
-              <Select value={selectedCreator} onValueChange={setSelectedCreator}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un créateur" />
-                </SelectTrigger>
-                <SelectContent>
-                  {creators.map((creator) => (
-                    <SelectItem key={creator} value={creator}>
-                      {creator}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="fixed inset-0 flex items-center justify-center z-50">
+        {showCreateArchive && (
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">Créer une nouvelle archive</h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Créateur</Label>
+                <Select value={selectedCreator} onValueChange={setSelectedCreator}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un créateur" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {creators.map((creator) => (
+                      <SelectItem key={creator} value={creator}>
+                        {creator}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Période</Label>
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une période" />
-                </SelectTrigger>
-                <SelectContent>
-                  {periodOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-2">
+                <Label>Période</Label>
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une période" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periodOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {selectedCreator && selectedPeriod && (
-              <Alert>
-                <Calendar className="h-4 w-4" />
-                <AlertDescription>
+              {selectedCreator && selectedPeriod && (
+                <div className="bg-gray-100 p-4 rounded">
                   {(() => {
                     const debugSales = debugSalesForPeriod(selectedCreator, selectedPeriod)
                     return `${debugSales.length} vente(s) trouvée(s) pour cette période`
@@ -678,86 +723,85 @@ export function ArchiveManagement() {
                     <Eye className="h-3 w-3 mr-1" />
                     Voir détails
                   </Button>
-                </AlertDescription>
-              </Alert>
-            )}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setShowCreateArchive(false)}>
+                Annuler
+              </Button>
+              <Button onClick={handleCreateArchive} disabled={!selectedCreator || !selectedPeriod}>
+                Créer l'archive
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateArchive(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleCreateArchive} disabled={!selectedCreator || !selectedPeriod}>
-              Créer l'archive
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
 
       {/* Dialog pour ajouter un virement */}
-      <Dialog open={showAddVirement} onOpenChange={setShowAddVirement}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enregistrer un virement</DialogTitle>
-            <DialogDescription>Saisissez les détails du virement effectué</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Montant (€)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={virementData.montant}
-                onChange={(e) => setVirementData({ ...virementData, montant: e.target.value })}
-              />
-            </div>
+      <div className="fixed inset-0 flex items-center justify-center z-50">
+        {showAddVirement && (
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">Enregistrer un virement</h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Montant (€)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={virementData.montant}
+                  onChange={(e) => setVirementData({ ...virementData, montant: e.target.value })}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Date du virement</Label>
-              <Input
-                type="date"
-                value={virementData.dateVirement}
-                onChange={(e) => setVirementData({ ...virementData, dateVirement: e.target.value })}
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Date du virement</Label>
+                <Input
+                  type="date"
+                  value={virementData.dateVirement}
+                  onChange={(e) => setVirementData({ ...virementData, dateVirement: e.target.value })}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Référence du virement</Label>
-              <Input
-                value={virementData.reference}
-                onChange={(e) => setVirementData({ ...virementData, reference: e.target.value })}
-                placeholder="Ex: VIR123456789"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Référence du virement</Label>
+                <Input
+                  value={virementData.reference}
+                  onChange={(e) => setVirementData({ ...virementData, reference: e.target.value })}
+                  placeholder="Ex: VIR123456789"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Banque</Label>
-              <Input
-                value={virementData.banque}
-                onChange={(e) => setVirementData({ ...virementData, banque: e.target.value })}
-                placeholder="Ex: Crédit Agricole"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Banque</Label>
+                <Input
+                  value={virementData.banque}
+                  onChange={(e) => setVirementData({ ...virementData, banque: e.target.value })}
+                  placeholder="Ex: Crédit Agricole"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Notes (optionnel)</Label>
-              <Textarea
-                value={virementData.notes}
-                onChange={(e) => setVirementData({ ...virementData, notes: e.target.value })}
-                placeholder="Notes additionnelles..."
-              />
+              <div className="space-y-2">
+                <Label>Notes (optionnel)</Label>
+                <Input
+                  value={virementData.notes}
+                  onChange={(e) => setVirementData({ ...virementData, notes: e.target.value })}
+                  placeholder="Notes additionnelles..."
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setShowAddVirement(false)}>
+                Annuler
+              </Button>
+              <Button onClick={handleAddVirement}>
+                <Send className="h-4 w-4 mr-2" />
+                Enregistrer le virement
+              </Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddVirement(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleAddVirement}>
-              <Send className="h-4 w-4 mr-2" />
-              Enregistrer le virement
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
     </div>
   )
 }

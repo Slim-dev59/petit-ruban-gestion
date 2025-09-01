@@ -1,6 +1,6 @@
-# Petit-Ruban - Gestion Multi-Créateurs v17
+# Boutique Multi-Créateurs
 
-Système de gestion pour boutique multi-créateurs avec authentification sécurisée.
+Application de gestion pour boutique multi-créateurs.
 
 ## Fonctionnalités
 

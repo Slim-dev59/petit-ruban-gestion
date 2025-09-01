@@ -25,34 +25,30 @@ export function SalesManagement() {
   const filteredSales = currentData.sales.filter((sale) => {
     const matchesSearch =
       sale.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sale.creatorName.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCreator = filterCreator === "all" || sale.creatorId === filterCreator
+      sale.creator.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCreator = filterCreator === "all" || sale.creator === filterCreator
     return matchesSearch && matchesCreator
   })
 
   // Statistiques
-  const totalSales = currentData.sales.reduce((sum, sale) => sum + sale.total, 0)
-  const totalCommissions = currentData.sales.reduce((sum, sale) => sum + (sale.total * sale.commission) / 100, 0)
+  const totalSales = currentData.sales.reduce((sum, sale) => sum + sale.price, 0)
+  const totalCommissions = currentData.sales.reduce((sum, sale) => sum + (sale.price * sale.commission) / 100, 0)
   const validatedSales = currentData.sales.filter((sale) => sale.isValidated).length
-  const uniqueCreators = new Set(currentData.sales.map((sale) => sale.creatorId)).size
+  const uniqueCreators = new Set(currentData.sales.map((sale) => sale.creator)).size
 
   const handleEditSale = (sale: any) => {
     setEditingSale(sale.id)
     setEditValues({
-      creatorId: sale.creatorId,
+      creatorId: sale.creator,
       commission: sale.commission,
     })
   }
 
   const handleSaveEdit = (saleId: string) => {
-    const creator = currentData.creators.find((c) => c.id === editValues.creatorId)
-    if (creator) {
-      updateSale(saleId, {
-        creatorId: editValues.creatorId,
-        creatorName: creator.name,
-        commission: editValues.commission,
-      })
-    }
+    updateSale(saleId, {
+      creator: editValues.creatorId,
+      commission: editValues.commission,
+    })
     setEditingSale(null)
   }
 
@@ -186,9 +182,7 @@ export function SalesManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Article</TableHead>
-                  <TableHead>Prix unitaire</TableHead>
-                  <TableHead>Quantité</TableHead>
-                  <TableHead>Total</TableHead>
+                  <TableHead>Prix</TableHead>
                   <TableHead>Créateur</TableHead>
                   <TableHead>Commission</TableHead>
                   <TableHead>Date</TableHead>
@@ -201,8 +195,6 @@ export function SalesManagement() {
                   <TableRow key={sale.id}>
                     <TableCell className="font-medium">{sale.itemName}</TableCell>
                     <TableCell>{sale.price.toFixed(2)} €</TableCell>
-                    <TableCell>{sale.quantity}</TableCell>
-                    <TableCell className="font-medium">{sale.total.toFixed(2)} €</TableCell>
                     <TableCell>
                       {editingSale === sale.id ? (
                         <Select
@@ -224,11 +216,11 @@ export function SalesManagement() {
                         <Badge
                           variant="outline"
                           style={{
-                            backgroundColor: currentData.creators.find((c) => c.id === sale.creatorId)?.color + "20",
-                            borderColor: currentData.creators.find((c) => c.id === sale.creatorId)?.color,
+                            backgroundColor: currentData.creators.find((c) => c.id === sale.creator)?.color + "20",
+                            borderColor: currentData.creators.find((c) => c.id === sale.creator)?.color,
                           }}
                         >
-                          {sale.creatorName}
+                          {sale.creator}
                         </Badge>
                       )}
                     </TableCell>
