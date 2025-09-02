@@ -10,45 +10,43 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Edit2, Trash2, Plus, Check, X, Users } from "lucide-react"
 
 export function CreatorManagement() {
-  const { getCurrentData, addCreator, updateCreator, deleteCreator } = useStore()
-  const currentData = getCurrentData()
+  const { creators, addCreator, removeCreator } = useStore()
   const [isAdding, setIsAdding] = useState(false)
   const [newCreatorName, setNewCreatorName] = useState("")
-  const [newCreatorCommission, setNewCreatorCommission] = useState(1.75)
   const [editingCreator, setEditingCreator] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState<{ name: string; commission: number }>({ name: "", commission: 1.75 })
+  const [editValue, setEditValue] = useState("")
 
   const handleAddCreator = () => {
-    addCreator({
-      name: newCreatorName,
-      commission: newCreatorCommission,
-      isActive: true,
-    })
-    setIsAdding(false)
-    setNewCreatorName("")
-    setNewCreatorCommission(1.75)
+    if (newCreatorName.trim()) {
+      addCreator(newCreatorName.trim())
+      setIsAdding(false)
+      setNewCreatorName("")
+    }
   }
 
-  const handleEditCreator = (creator: any) => {
-    setEditingCreator(creator.id)
-    setEditValues({ name: creator.name, commission: creator.commission })
+  const handleEditCreator = (creator: string) => {
+    setEditingCreator(creator)
+    setEditValue(creator)
   }
 
-  const handleSaveEdit = (creatorId: string) => {
-    updateCreator(creatorId, {
-      name: editValues.name,
-      commission: editValues.commission,
-    })
+  const handleSaveEdit = (oldName: string) => {
+    if (editValue.trim() && editValue !== oldName) {
+      removeCreator(oldName)
+      addCreator(editValue.trim())
+    }
     setEditingCreator(null)
+    setEditValue("")
   }
 
   const handleCancelEdit = () => {
     setEditingCreator(null)
-    setEditValues({ name: "", commission: 1.75 })
+    setEditValue("")
   }
 
-  const handleDeleteCreator = (creatorId: string) => {
-    deleteCreator(creatorId)
+  const handleDeleteCreator = (creator: string) => {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer le créateur "${creator}" ?`)) {
+      removeCreator(creator)
+    }
   }
 
   return (
@@ -65,7 +63,7 @@ export function CreatorManagement() {
       <Card>
         <CardHeader>
           <CardTitle>Ajouter un Créateur</CardTitle>
-          <CardDescription>Entrez les informations du nouveau créateur</CardDescription>
+          <CardDescription>Entrez le nom du nouveau créateur</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {isAdding ? (
@@ -77,24 +75,16 @@ export function CreatorManagement() {
                   value={newCreatorName}
                   onChange={(e) => setNewCreatorName(e.target.value)}
                   placeholder="Nom du créateur"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="creatorCommission">Commission (%)</Label>
-                <Input
-                  id="creatorCommission"
-                  type="number"
-                  step="0.01"
-                  value={newCreatorCommission}
-                  onChange={(e) => setNewCreatorCommission(Number.parseFloat(e.target.value))}
-                  placeholder="1.75"
+                  onKeyPress={(e) => e.key === "Enter" && handleAddCreator()}
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setIsAdding(false)}>
                   Annuler
                 </Button>
-                <Button onClick={handleAddCreator}>Ajouter</Button>
+                <Button onClick={handleAddCreator} disabled={!newCreatorName.trim()}>
+                  Ajouter
+                </Button>
               </div>
             </>
           ) : (
@@ -109,7 +99,7 @@ export function CreatorManagement() {
       {/* Liste des créateurs */}
       <Card>
         <CardHeader>
-          <CardTitle>Liste des Créateurs</CardTitle>
+          <CardTitle>Liste des Créateurs ({creators.length})</CardTitle>
           <CardDescription>Visualisez et modifiez les créateurs existants</CardDescription>
         </CardHeader>
         <CardContent>
@@ -118,45 +108,32 @@ export function CreatorManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nom</TableHead>
-                  <TableHead>Commission</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentData.creators.map((creator) => (
-                  <TableRow key={creator.id}>
+                {creators.map((creator) => (
+                  <TableRow key={creator}>
                     <TableCell className="font-medium">
-                      {editingCreator === creator.id ? (
+                      {editingCreator === creator ? (
                         <Input
-                          value={editValues.name}
-                          onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && handleSaveEdit(creator)}
+                          className="max-w-xs"
                         />
                       ) : (
-                        creator.name
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingCreator === creator.id ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editValues.commission}
-                          onChange={(e) =>
-                            setEditValues({ ...editValues, commission: Number.parseFloat(e.target.value) })
-                          }
-                        />
-                      ) : (
-                        `${creator.commission}%`
+                        creator
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {editingCreator === creator.id ? (
+                        {editingCreator === creator ? (
                           <>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleSaveEdit(creator.id)}
+                              onClick={() => handleSaveEdit(creator)}
                               className="h-8 w-8 p-0"
                             >
                               <Check className="w-4 h-4 text-green-600" />
@@ -178,8 +155,9 @@ export function CreatorManagement() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDeleteCreator(creator.id)}
+                              onClick={() => handleDeleteCreator(creator)}
                               className="h-8 w-8 p-0"
+                              disabled={creator === "Non identifié"}
                             >
                               <Trash2 className="w-4 h-4 text-red-600" />
                             </Button>
@@ -193,7 +171,7 @@ export function CreatorManagement() {
             </Table>
           </div>
 
-          {currentData.creators.length === 0 && (
+          {creators.length === 0 && (
             <div className="text-center py-8">
               <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">Aucun créateur trouvé</p>

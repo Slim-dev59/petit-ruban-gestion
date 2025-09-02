@@ -11,6 +11,9 @@ import { SettingsPanel } from "@/components/settings-panel"
 import { CreatorManagement } from "@/components/creator-management"
 import { PDFGenerator } from "@/components/pdf-generator"
 import { ArchiveManagement } from "@/components/archive-management"
+import { ImportFiles } from "@/components/import-files"
+import { StockOverview } from "@/components/stock-overview"
+import { SalesAnalytics } from "@/components/sales-analytics"
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("import")
@@ -78,6 +81,9 @@ export default function Home() {
     { id: "rapports", label: "Rapports", icon: FileText },
     { id: "archives", label: "Archives", icon: Package },
     { id: "parametres", label: "Paramètres", icon: Settings },
+    { id: "importFiles", label: "Import Files", icon: Upload },
+    { id: "stockOverview", label: "Stock Overview", icon: Package },
+    { id: "salesAnalytics", label: "Sales Analytics", icon: TrendingUp },
   ]
 
   const renderTabContent = () => {
@@ -94,6 +100,12 @@ export default function Home() {
         return <ArchiveManagement />
       case "parametres":
         return <SettingsPanel />
+      case "importFiles":
+        return <ImportFiles />
+      case "stockOverview":
+        return <StockOverview />
+      case "salesAnalytics":
+        return <SalesAnalytics />
       default:
         return <ImportManager />
     }

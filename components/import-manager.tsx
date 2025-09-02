@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImportFiles } from "@/components/import-files"
 import { StockOverview } from "@/components/stock-overview"
-import { SalesImport } from "@/components/sales-import"
 import { Upload, Package, TrendingUp, AlertCircle } from "lucide-react"
 import { useStore } from "@/lib/store"
 import Papa from "papaparse"
@@ -321,7 +320,7 @@ export function ImportManager() {
               <CardDescription>Importez votre fichier CSV/Excel contenant les données de ventes</CardDescription>
             </CardHeader>
             <CardContent>
-              <SalesImport />
+              <ImportFiles type="sales" />
             </CardContent>
           </Card>
         </TabsContent>

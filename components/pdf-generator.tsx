@@ -6,82 +6,43 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { FileText, Download, Eye } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { jsPDF } from "jspdf"
+import { formatCurrency, parsePrice } from "@/lib/sales-utils"
 
 export function PDFGenerator() {
+  const { creators, getSalesForCreator, getStockForCreator, settings } = useStore()
   const [selectedCreator, setSelectedCreator] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [generating, setGenerating] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
-
-  const { creators, getSalesForCreator, getStockForCreator, settings } = useStore()
 
   const generatePDFContent = (creator: string) => {
     const sales = getSalesForCreator(creator)
     const stock = getStockForCreator(creator)
 
-    console.log(`Génération PDF pour ${creator}:`, { sales: sales.length, stock: stock.length })
-
-    // Filter sales by date if specified - améliorer la logique de filtrage
+    // Filtrer les ventes par date si spécifié
     const filteredSales = sales.filter((sale) => {
       if (!startDate && !endDate) return true
 
-      // Essayer différents formats de date
-      let saleDate: Date
       try {
-        // Si la date est au format ISO ou standard
-        saleDate = new Date(sale.date)
+        const saleDate = new Date(sale.date)
+        const start = startDate ? new Date(startDate) : new Date("1900-01-01")
+        const end = endDate ? new Date(endDate) : new Date("2100-12-31")
 
-        // Si la date n'est pas valide, essayer d'autres formats
-        if (isNaN(saleDate.getTime())) {
-          // Format DD/MM/YYYY ou DD-MM-YYYY
-          const parts = sale.date.split(/[/-]/)
-          if (parts.length === 3) {
-            saleDate = new Date(Number.parseInt(parts[2]), Number.parseInt(parts[1]) - 1, Number.parseInt(parts[0]))
-          } else {
-            return true // Inclure si on ne peut pas parser la date
-          }
-        }
+        return saleDate >= start && saleDate <= end
       } catch (error) {
-        console.log("Erreur parsing date:", sale.date)
-        return true // Inclure en cas d'erreur
+        return true
       }
-
-      const start = startDate ? new Date(startDate) : new Date("1900-01-01")
-      const end = endDate ? new Date(endDate) : new Date("2100-12-31")
-
-      return saleDate >= start && saleDate <= end
     })
 
-    console.log(`Ventes filtrées: ${filteredSales.length}`, filteredSales)
-
-    // Calculs avec vérification des valeurs
-    const totalSales = filteredSales.reduce((sum, sale) => {
-      const price = Number.parseFloat(sale.prix?.replace(",", ".") || "0")
-      console.log(`Vente: ${sale.description}, Prix: ${sale.prix} -> ${price}`)
-      return sum + (isNaN(price) ? 0 : price)
-    }, 0)
-
+    const totalSales = filteredSales.reduce((sum, sale) => sum + parsePrice(sale.prix), 0)
     const totalCommission = filteredSales.reduce((sum, sale) => {
-      const price = Number.parseFloat(sale.prix?.replace(",", ".") || "0")
-      if (isNaN(price)) return sum
-
-      const isNotCash =
-        sale.paiement?.toLowerCase() !== "espèces" &&
-        sale.paiement?.toLowerCase() !== "cash" &&
-        sale.paiement?.toLowerCase() !== "liquide"
-      const commission = isNotCash ? price * (settings.commissionRate / 100) : 0
-      console.log(`Commission pour ${sale.description}: ${commission}`)
-      return sum + commission
+      const price = parsePrice(sale.prix)
+      const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+      return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
     }, 0)
-
     const netAmount = totalSales - totalCommission
-
-    console.log(`Totaux calculés - CA: ${totalSales}, Commission: ${totalCommission}, Net: ${netAmount}`)
 
     const currentDate = new Date().toLocaleDateString("fr-FR")
     const periodText = startDate && endDate ? `du ${startDate} au ${endDate}` : "Toutes les ventes"
@@ -218,10 +179,6 @@ export function PDFGenerator() {
             background: #f8fafc;
         }
         
-        tr:hover {
-            background: #f1f5f9;
-        }
-        
         .amount {
             text-align: right;
             font-weight: 600;
@@ -248,10 +205,6 @@ export function PDFGenerator() {
         .payment-other {
             background: #f3e8ff;
             color: #7c3aed;
-        }
-        
-        .stock-table th {
-            background: #059669;
         }
         
         .footer {
@@ -284,7 +237,6 @@ export function PDFGenerator() {
 </head>
 <body>
     <div class="header">
-        ${settings.logo ? `<img src="${settings.logo}" alt="Logo" style="height: 60px; margin-bottom: 10px; object-fit: contain;" />` : ""}
         <h1>${settings.shopName}</h1>
         <h2>Rapport de ventes - ${creator}</h2>
         <div class="period">${periodText} • Généré le ${currentDate}</div>
@@ -314,10 +266,8 @@ export function PDFGenerator() {
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Heure</th>
                     <th>Article</th>
-                    <th>Quantité</th>
-                    <th>Prix unitaire</th>
+                    <th>Prix</th>
                     <th>Mode de paiement</th>
                     <th>Commission</th>
                     <th>Net</th>
@@ -326,13 +276,8 @@ export function PDFGenerator() {
             <tbody>
                 ${filteredSales
                   .map((sale) => {
-                    const price = Number.parseFloat(sale.prix?.replace(",", ".") || "0")
-                    if (isNaN(price)) return "" // Ignorer les ventes avec prix invalide
-
-                    const isNotCash =
-                      sale.paiement?.toLowerCase() !== "espèces" &&
-                      sale.paiement?.toLowerCase() !== "cash" &&
-                      sale.paiement?.toLowerCase() !== "liquide"
+                    const price = parsePrice(sale.prix)
+                    const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
                     const commission = isNotCash ? price * (settings.commissionRate / 100) : 0
                     const net = price - commission
 
@@ -342,39 +287,10 @@ export function PDFGenerator() {
                         : "payment-other"
                       : "payment-cash"
 
-                    // Améliorer l'extraction de date et heure
-                    let dateStr = sale.date
-                    let timeStr = "--:--"
-
-                    try {
-                      // Si on a une date complète avec heure
-                      if (sale.date.includes(" ") || sale.date.includes("T")) {
-                        const saleDate = new Date(sale.date)
-                        if (!isNaN(saleDate.getTime())) {
-                          dateStr = saleDate.toLocaleDateString("fr-FR")
-                          timeStr = saleDate.toLocaleTimeString("fr-FR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        }
-                      } else {
-                        // Juste une date
-                        const saleDate = new Date(sale.date)
-                        if (!isNaN(saleDate.getTime())) {
-                          dateStr = saleDate.toLocaleDateString("fr-FR")
-                        }
-                      }
-                    } catch (error) {
-                      // Garder la date originale si parsing échoue
-                      dateStr = sale.date
-                    }
-
                     return `
                     <tr>
-                        <td>${dateStr}</td>
-                        <td>${timeStr}</td>
+                        <td>${sale.date}</td>
                         <td>${sale.description}</td>
-                        <td>1</td>
                         <td class="amount">${price.toFixed(2)}€</td>
                         <td><span class="payment-method ${paymentClass}">${sale.paiement}</span></td>
                         <td class="amount">${commission > 0 ? commission.toFixed(2) + "€" : "-"}</td>
@@ -382,67 +298,11 @@ export function PDFGenerator() {
                     </tr>
                     `
                   })
-                  .filter((row) => row !== "") // Enlever les lignes vides
                   .join("")}
             </tbody>
         </table>
         `
             : '<div class="no-data">Aucune vente pour cette période</div>'
-        }
-    </div>
-    
-    <div class="section">
-        <div class="section-title">📦 État du stock (${stock.length} articles)</div>
-        ${
-          stock.length > 0
-            ? `
-        <table class="stock-table">
-            <thead>
-                <tr>
-                    <th>Article</th>
-                    <th>Prix de vente</th>
-                    <th>Quantité en stock</th>
-                    <th>Valeur stock</th>
-                    <th>SKU</th>
-                    <th>Statut</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${stock
-                  .map((item) => {
-                    const price = Number.parseFloat(item.price || "0")
-                    const quantity = Number.parseInt(item.quantity || "0")
-                    const threshold = Number.parseInt(item.lowStockThreshold || "0")
-                    const value = price * quantity
-
-                    let status = "Normal"
-                    let statusClass = ""
-                    if (quantity === 0) {
-                      status = "Rupture"
-                      statusClass = "payment-other"
-                    } else if (quantity <= threshold) {
-                      status = "Stock faible"
-                      statusClass = "payment-card"
-                    } else {
-                      statusClass = "payment-cash"
-                    }
-
-                    return `
-                    <tr>
-                        <td>${item.article}</td>
-                        <td class="amount">${price.toFixed(2)}€</td>
-                        <td class="amount">${quantity}</td>
-                        <td class="amount">${value.toFixed(2)}€</td>
-                        <td>${item.sku}</td>
-                        <td><span class="payment-method ${statusClass}">${status}</span></td>
-                    </tr>
-                `
-                  })
-                  .join("")}
-            </tbody>
-        </table>
-        `
-            : '<div class="no-data">Aucun article en stock</div>'
         }
     </div>
     
@@ -463,7 +323,7 @@ export function PDFGenerator() {
     try {
       const htmlContent = generatePDFContent(selectedCreator)
 
-      // Create and download HTML file that can be printed as PDF
+      // Créer et télécharger le fichier HTML
       const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -474,7 +334,7 @@ export function PDFGenerator() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
-      // Also open in new window for immediate printing
+      // Ouvrir dans une nouvelle fenêtre pour impression
       const printWindow = window.open("", "_blank")
       if (printWindow) {
         printWindow.document.write(htmlContent)
@@ -498,16 +358,16 @@ export function PDFGenerator() {
     }
   }
 
-  const generatePdf = () => {
-    const doc = new jsPDF()
-
-    doc.text("Hello world!", 10, 10)
-
-    doc.save("petit-ruban-report.pdf")
-  }
-
   return (
     <div className="space-y-6">
+      {/* En-tête */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Génération de Rapports</h2>
+          <p className="text-gray-600">Générez des rapports détaillés pour chaque créateur</p>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -555,44 +415,15 @@ export function PDFGenerator() {
               <Eye className="h-4 w-4 mr-2" />
               Aperçu
             </Button>
-            <Button onClick={generatePdf} className="flex-1">
+            <Button onClick={generatePDF} disabled={!selectedCreator || generating} className="flex-1">
               <Download className="h-4 w-4 mr-2" />
-              Générer un rapport
+              {generating ? "Génération..." : "Générer PDF"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Contenu du rapport</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">En-tête</Badge>
-              <span>Nom de la boutique, créateur, période et date de génération</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">Résumé financier</Badge>
-              <span>CA réalisé, total des commissions, solde à verser</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">Détail des ventes</Badge>
-              <span>Date, heure, article, quantité, prix, mode de paiement, commission, net</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">État du stock</Badge>
-              <span>Article, prix, quantité, valeur, SKU, statut</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">Pied de page</Badge>
-              <span>Informations sur la commission et date de génération</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      {/* Aperçu des créateurs */}
       {creators.length > 0 && (
         <Card>
           <CardHeader>
@@ -602,10 +433,9 @@ export function PDFGenerator() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {creators.map((creator) => {
                 const sales = getSalesForCreator(creator)
-                const stock = getStockForCreator(creator)
-                const totalSales = sales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+                const totalSales = sales.reduce((sum, sale) => sum + parsePrice(sale.prix), 0)
                 const totalCommission = sales.reduce((sum, sale) => {
-                  const price = Number.parseFloat(sale.prix || "0")
+                  const price = parsePrice(sale.prix)
                   const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
                   return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
                 }, 0)
@@ -614,13 +444,11 @@ export function PDFGenerator() {
                   <div key={creator} className="p-4 border rounded-lg">
                     <h4 className="font-medium mb-2">{creator}</h4>
                     <div className="text-sm text-muted-foreground space-y-1">
-                      <p>
-                        {sales.length} ventes • {stock.length} articles
-                      </p>
-                      <p>CA: {totalSales.toFixed(2)}€</p>
-                      <p>Commission: {totalCommission.toFixed(2)}€</p>
+                      <p>{sales.length} ventes</p>
+                      <p>CA: {formatCurrency(totalSales)}</p>
+                      <p>Commission: {formatCurrency(totalCommission)}</p>
                       <p className="font-medium text-green-600">
-                        À verser: {(totalSales - totalCommission).toFixed(2)}€
+                        À verser: {formatCurrency(totalSales - totalCommission)}
                       </p>
                     </div>
                     <Button

@@ -8,15 +8,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit2, Trash2, Plus, Check, X, Users } from "lucide-react"
-import { Archive, CheckCircle, Clock, CreditCard, FileArchive, Send, AlertTriangle, Eye } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Archive, CheckCircle, Clock, CreditCard, FileArchive, Send, AlertTriangle, Plus } from "lucide-react"
+import { formatCurrency } from "@/lib/sales-utils"
 
 export function ArchiveManagement() {
   const {
-    getCurrentData,
-    addCreator,
-    updateCreator,
-    deleteCreator,
     creators,
     archives,
     virements,
@@ -24,23 +21,17 @@ export function ArchiveManagement() {
     createArchive,
     validateArchive,
     addVirement,
-    updateVirementStatus,
     getArchivesForCreator,
     getVirementsForArchive,
     getSalesForCreator,
+    settings,
   } = useStore()
-  const currentData = getCurrentData()
-  const [isAdding, setIsAdding] = useState(false)
-  const [newCreatorName, setNewCreatorName] = useState("")
-  const [newCreatorCommission, setNewCreatorCommission] = useState(1.75)
-  const [editingCreator, setEditingCreator] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState<{ name: string; commission: number }>({ name: "", commission: 1.75 })
+
   const [selectedCreator, setSelectedCreator] = useState("")
   const [selectedPeriod, setSelectedPeriod] = useState("")
   const [showCreateArchive, setShowCreateArchive] = useState(false)
   const [showAddVirement, setShowAddVirement] = useState(false)
   const [selectedArchiveId, setSelectedArchiveId] = useState("")
-  const [showDebug, setShowDebug] = useState(false)
   const [virementData, setVirementData] = useState({
     montant: "",
     dateVirement: "",
@@ -62,103 +53,8 @@ export function ArchiveManagement() {
     return options
   }
 
-  // Fonction de débogage pour analyser les ventes
-  const debugSalesForPeriod = (createur: string, periode: string) => {
-    console.log("=== DÉBUT DEBUG VENTES ===")
-    console.log(`Créateur: ${createur}`)
-    console.log(`Période: ${periode}`)
-
-    const allSales = getSalesForCreator(createur)
-    console.log(`Toutes les ventes pour ${createur}:`, allSales.length)
-
-    if (allSales.length === 0) {
-      console.log("❌ Aucune vente trouvée pour ce créateur")
-      return []
-    }
-
-    console.log("Échantillon des ventes:")
-    allSales.slice(0, 3).forEach((sale, index) => {
-      console.log(`Vente ${index + 1}:`, {
-        date: sale.date,
-        description: sale.description,
-        prix: sale.prix,
-        createur: sale.createur,
-      })
-    })
-
-    const [targetYear, targetMonth] = periode.split("-")
-    console.log(`Période cible: Année ${targetYear}, Mois ${targetMonth}`)
-
-    const filteredSales = allSales.filter((sale) => {
-      console.log(`\n--- Analyse vente: ${sale.description} ---`)
-      console.log(`Date brute: "${sale.date}"`)
-
-      try {
-        let saleDate: Date
-
-        // Essayer différents formats de date
-        if (sale.date.includes("/")) {
-          // Format DD/MM/YYYY
-          const parts = sale.date.split("/")
-          console.log(`Format DD/MM/YYYY détecté: ${parts}`)
-          if (parts.length === 3) {
-            saleDate = new Date(Number.parseInt(parts[2]), Number.parseInt(parts[1]) - 1, Number.parseInt(parts[0]))
-            console.log(`Date parsée (DD/MM/YYYY): ${saleDate.toISOString()}`)
-          } else {
-            throw new Error("Format DD/MM/YYYY invalide")
-          }
-        } else if (sale.date.includes("-")) {
-          // Format YYYY-MM-DD ou DD-MM-YYYY
-          const parts = sale.date.split("-")
-          console.log(`Format avec tirets détecté: ${parts}`)
-          if (parts[0].length === 4) {
-            // Format YYYY-MM-DD
-            saleDate = new Date(sale.date)
-            console.log(`Date parsée (ISO): ${saleDate.toISOString()}`)
-          } else {
-            // Format DD-MM-YYYY
-            saleDate = new Date(Number.parseInt(parts[2]), Number.parseInt(parts[1]) - 1, Number.parseInt(parts[0]))
-            console.log(`Date parsée (DD-MM-YYYY): ${saleDate.toISOString()}`)
-          }
-        } else {
-          // Essayer le parsing direct
-          saleDate = new Date(sale.date)
-          console.log(`Date parsée (direct): ${saleDate.toISOString()}`)
-        }
-
-        if (isNaN(saleDate.getTime())) {
-          console.log(`❌ Date invalide après parsing`)
-          return false
-        }
-
-        const saleYear = saleDate.getFullYear()
-        const saleMonth = saleDate.getMonth() + 1 // +1 car getMonth() retourne 0-11
-
-        console.log(`Date de la vente: Année ${saleYear}, Mois ${saleMonth}`)
-        console.log(`Période cible: Année ${targetYear}, Mois ${targetMonth}`)
-
-        const match = saleYear === Number.parseInt(targetYear) && saleMonth === Number.parseInt(targetMonth)
-        console.log(`Match: ${match ? "✅" : "❌"}`)
-
-        return match
-      } catch (error) {
-        console.error(`❌ Erreur parsing date "${sale.date}":`, error)
-        return false
-      }
-    })
-
-    console.log(`\n=== RÉSULTAT FINAL ===`)
-    console.log(`Ventes filtrées: ${filteredSales.length}`)
-    console.log("=== FIN DEBUG VENTES ===\n")
-
-    return filteredSales
-  }
-
   const handleCreateArchive = () => {
     if (!selectedCreator || !selectedPeriod) return
-
-    // Debug avant création
-    const debugSales = debugSalesForPeriod(selectedCreator, selectedPeriod)
 
     // Vérifier qu'il n'existe pas déjà une archive pour cette période
     const existingArchive = archives.find(
@@ -170,13 +66,6 @@ export function ArchiveManagement() {
       return
     }
 
-    if (debugSales.length === 0) {
-      const confirm = window.confirm(
-        `Aucune vente trouvée pour ${selectedCreator} en ${selectedPeriod}. Voulez-vous créer une archive vide ?`,
-      )
-      if (!confirm) return
-    }
-
     const archiveId = createArchive(selectedCreator, selectedPeriod)
     setShowCreateArchive(false)
     setSelectedCreator("")
@@ -184,7 +73,7 @@ export function ArchiveManagement() {
   }
 
   const handleValidateArchive = (archiveId: string) => {
-    validateArchive(archiveId, "Administrateur") // TODO: Récupérer l'utilisateur connecté
+    validateArchive(archiveId, "Administrateur")
   }
 
   const handleAddVirement = () => {
@@ -202,7 +91,7 @@ export function ArchiveManagement() {
       banque: virementData.banque,
       statut: "effectue",
       notes: virementData.notes,
-      creePar: "Administrateur", // TODO: Récupérer l'utilisateur connecté
+      creePar: "Administrateur",
     })
 
     setShowAddVirement(false)
@@ -220,31 +109,27 @@ export function ArchiveManagement() {
     switch (statut) {
       case "en_attente":
         return (
-          <div className="bg-orange-100 text-orange-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-orange-200 dark:text-orange-900">
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800">
             <Clock className="h-3 w-3 mr-1" />
             En attente
-          </div>
+          </Badge>
         )
       case "valide":
         return (
-          <div className="bg-blue-100 text-blue-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-900">
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
             <CheckCircle className="h-3 w-3 mr-1" />
             Validé
-          </div>
+          </Badge>
         )
       case "paye":
         return (
-          <div className="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-200 dark:text-green-900">
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
             <CreditCard className="h-3 w-3 mr-1" />
             Payé
-          </div>
+          </Badge>
         )
       default:
-        return (
-          <div className="bg-gray-100 text-gray-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-200 dark:text-gray-900">
-            {statut}
-          </div>
-        )
+        return <Badge variant="secondary">{statut}</Badge>
     }
   }
 
@@ -252,220 +137,41 @@ export function ArchiveManagement() {
     switch (statut) {
       case "programme":
         return (
-          <div className="bg-orange-100 text-orange-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-orange-200 dark:text-orange-900">
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800">
             <Clock className="h-3 w-3 mr-1" />
             Programmé
-          </div>
+          </Badge>
         )
       case "effectue":
         return (
-          <div className="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-200 dark:text-green-900">
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
             Effectué
-          </div>
+          </Badge>
         )
       case "echec":
         return (
-          <div className="bg-red-100 text-red-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-200 dark:text-red-900">
+          <Badge variant="secondary" className="bg-red-100 text-red-800">
             <AlertTriangle className="h-3 w-3 mr-1" />
             Échec
-          </div>
+          </Badge>
         )
       default:
-        return (
-          <div className="bg-gray-100 text-gray-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-200 dark:text-gray-900">
-            {statut}
-          </div>
-        )
+        return <Badge variant="secondary">{statut}</Badge>
     }
   }
 
   const periodOptions = generatePeriodOptions()
-
-  const handleAddCreator = () => {
-    addCreator({
-      name: newCreatorName,
-      commission: newCreatorCommission,
-      isActive: true,
-    })
-    setIsAdding(false)
-    setNewCreatorName("")
-    setNewCreatorCommission(1.75)
-  }
-
-  const handleEditCreator = (creator: any) => {
-    setEditingCreator(creator.id)
-    setEditValues({ name: creator.name, commission: creator.commission })
-  }
-
-  const handleSaveEdit = (creatorId: string) => {
-    updateCreator(creatorId, {
-      name: editValues.name,
-      commission: editValues.commission,
-    })
-    setEditingCreator(null)
-  }
-
-  const handleCancelEdit = () => {
-    setEditingCreator(null)
-    setEditValues({ name: "", commission: 1.75 })
-  }
-
-  const handleDeleteCreator = (creatorId: string) => {
-    deleteCreator(creatorId)
-  }
 
   return (
     <div className="space-y-6">
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestion des Créateurs</h2>
-          <p className="text-gray-600">Ajoutez, modifiez ou supprimez les créateurs de votre boutique</p>
+          <h2 className="text-2xl font-bold text-gray-900">Gestion des Archives</h2>
+          <p className="text-gray-600">Archivez et validez les ventes mensuelles par créateur</p>
         </div>
       </div>
-
-      {/* Ajout d'un créateur */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ajouter un Créateur</CardTitle>
-          <CardDescription>Entrez les informations du nouveau créateur</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isAdding ? (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="creatorName">Nom du créateur</Label>
-                <Input
-                  id="creatorName"
-                  value={newCreatorName}
-                  onChange={(e) => setNewCreatorName(e.target.value)}
-                  placeholder="Nom du créateur"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="creatorCommission">Commission (%)</Label>
-                <Input
-                  id="creatorCommission"
-                  type="number"
-                  step="0.01"
-                  value={newCreatorCommission}
-                  onChange={(e) => setNewCreatorCommission(Number.parseFloat(e.target.value))}
-                  placeholder="1.75"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setIsAdding(false)}>
-                  Annuler
-                </Button>
-                <Button onClick={handleAddCreator}>Ajouter</Button>
-              </div>
-            </>
-          ) : (
-            <Button onClick={() => setIsAdding(true)} className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Ajouter un créateur
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Liste des créateurs */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Liste des Créateurs</CardTitle>
-          <CardDescription>Visualisez et modifiez les créateurs existants</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentData.creators.map((creator) => (
-                  <TableRow key={creator.id}>
-                    <TableCell className="font-medium">
-                      {editingCreator === creator.id ? (
-                        <Input
-                          value={editValues.name}
-                          onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
-                        />
-                      ) : (
-                        creator.name
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingCreator === creator.id ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editValues.commission}
-                          onChange={(e) =>
-                            setEditValues({ ...editValues, commission: Number.parseFloat(e.target.value) })
-                          }
-                        />
-                      ) : (
-                        `${creator.commission}%`
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {editingCreator === creator.id ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleSaveEdit(creator.id)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Check className="w-4 h-4 text-green-600" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0">
-                              <X className="w-4 h-4 text-red-600" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEditCreator(creator)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteCreator(creator.id)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {currentData.creators.length === 0 && (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Aucun créateur trouvé</p>
-              <p className="text-sm text-gray-400">Ajoutez des créateurs pour commencer</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Gestion des archives */}
       <Card>
@@ -582,9 +288,9 @@ export function ArchiveManagement() {
                       <TableCell className="font-medium">{archive.createur}</TableCell>
                       <TableCell>{periodLabel}</TableCell>
                       <TableCell>{archive.ventes.length}</TableCell>
-                      <TableCell className="font-medium">{archive.totalCA.toFixed(2)}€</TableCell>
-                      <TableCell className="text-red-600">{archive.totalCommission.toFixed(2)}€</TableCell>
-                      <TableCell className="font-medium text-green-600">{archive.netAVerser.toFixed(2)}€</TableCell>
+                      <TableCell className="font-medium">{formatCurrency(archive.totalCA)}</TableCell>
+                      <TableCell className="text-red-600">{formatCurrency(archive.totalCommission)}</TableCell>
+                      <TableCell className="font-medium text-green-600">{formatCurrency(archive.netAVerser)}</TableCell>
                       <TableCell>{getStatusBadge(archive.statut)}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -609,11 +315,7 @@ export function ArchiveManagement() {
                               Virer
                             </Button>
                           )}
-                          {virements.length > 0 && (
-                            <div className="bg-gray-100 text-gray-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-gray-200 dark:text-gray-900">
-                              {virements.length} virement(s)
-                            </div>
-                          )}
+                          {virements.length > 0 && <Badge variant="outline">{virements.length} virement(s)</Badge>}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -621,6 +323,14 @@ export function ArchiveManagement() {
                 })}
             </TableBody>
           </Table>
+
+          {archives.length === 0 && (
+            <div className="text-center py-8">
+              <Archive className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">Aucune archive trouvée</p>
+              <p className="text-sm text-gray-400">Créez votre première archive pour commencer</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -653,7 +363,7 @@ export function ArchiveManagement() {
                     <TableRow key={virement.id}>
                       <TableCell>{new Date(virement.dateVirement).toLocaleDateString("fr-FR")}</TableCell>
                       <TableCell className="font-medium">{virement.createur}</TableCell>
-                      <TableCell className="font-medium">{virement.montant.toFixed(2)}€</TableCell>
+                      <TableCell className="font-medium">{formatCurrency(virement.montant)}</TableCell>
                       <TableCell className="font-mono text-sm">{virement.reference}</TableCell>
                       <TableCell>{virement.banque}</TableCell>
                       <TableCell>{getVirementStatusBadge(virement.statut)}</TableCell>
@@ -669,9 +379,9 @@ export function ArchiveManagement() {
       )}
 
       {/* Dialog pour créer une archive */}
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        {showCreateArchive && (
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+      {showCreateArchive && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h3 className="text-xl font-bold mb-4">Créer une nouvelle archive</h3>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -708,21 +418,9 @@ export function ArchiveManagement() {
 
               {selectedCreator && selectedPeriod && (
                 <div className="bg-gray-100 p-4 rounded">
-                  {(() => {
-                    const debugSales = debugSalesForPeriod(selectedCreator, selectedPeriod)
-                    return `${debugSales.length} vente(s) trouvée(s) pour cette période`
-                  })()}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="ml-2 bg-transparent"
-                    onClick={() => {
-                      debugSalesForPeriod(selectedCreator, selectedPeriod)
-                    }}
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    Voir détails
-                  </Button>
+                  <p className="text-sm">
+                    {getSalesForCreator(selectedCreator).length} vente(s) trouvée(s) pour cette période
+                  </p>
                 </div>
               )}
             </div>
@@ -735,13 +433,13 @@ export function ArchiveManagement() {
               </Button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Dialog pour ajouter un virement */}
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        {showAddVirement && (
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+      {showAddVirement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h3 className="text-xl font-bold mb-4">Enregistrer un virement</h3>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -800,8 +498,8 @@ export function ArchiveManagement() {
               </Button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -132,6 +132,33 @@ export function SettingsPanel() {
               </div>
               <p className="text-xs text-gray-500">Commission appliquée par défaut aux nouveaux créateurs</p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="commissionRate">Taux de commission (%)</Label>
+              <div className="relative">
+                <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="commissionRate"
+                  type="number"
+                  step="0.01"
+                  value={settings.commissionRate}
+                  onChange={(e) => handleSettingChange("commissionRate", Number.parseFloat(e.target.value))}
+                  className="pl-10"
+                  placeholder="1.75"
+                />
+              </div>
+              <p className="text-xs text-gray-500">Taux de commission appliqué sur les ventes</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="shopName">Nom de la boutique</Label>
+              <Input
+                id="shopName"
+                value={settings.shopName}
+                onChange={(e) => handleSettingChange("shopName", e.target.value)}
+                placeholder="Petit-Ruban"
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -143,12 +170,12 @@ export function SettingsPanel() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2">
-              <Button onClick={handleSave} disabled={hasChanges} className="w-full">
+              <Button onClick={handleSave} disabled={!hasChanges} className="w-full">
                 <Save className="w-4 h-4 mr-2" />
                 Sauvegarder les modifications
               </Button>
 
-              <Button variant="outline" onClick={handleReset} disabled={hasChanges} className="w-full bg-transparent">
+              <Button variant="outline" onClick={handleReset} disabled={!hasChanges} className="w-full bg-transparent">
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Annuler les modifications
               </Button>
@@ -207,6 +234,16 @@ export function SettingsPanel() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="stockCreatorColumn">Colonne Créateur</Label>
+              <Input
+                id="stockCreatorColumn"
+                value={settings.stockTemplate.creatorColumn}
+                onChange={(e) => handleTemplateChange("stockTemplate", "creatorColumn", e.target.value)}
+                placeholder="Créateur"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="stockPriceColumn">Colonne Prix</Label>
               <Input
                 id="stockPriceColumn"
@@ -227,12 +264,22 @@ export function SettingsPanel() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="stockCreatorColumn">Colonne Créateur</Label>
+              <Label htmlFor="stockArticleColumn">Colonne Article</Label>
               <Input
-                id="stockCreatorColumn"
-                value={settings.stockTemplate.creatorColumn}
-                onChange={(e) => handleTemplateChange("stockTemplate", "creatorColumn", e.target.value)}
-                placeholder="Créateur"
+                id="stockArticleColumn"
+                value={settings.stockTemplate.articleColumn}
+                onChange={(e) => handleTemplateChange("stockTemplate", "articleColumn", e.target.value)}
+                placeholder="Article"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="stockSkuColumn">Colonne SKU</Label>
+              <Input
+                id="stockSkuColumn"
+                value={settings.stockTemplate.skuColumn}
+                onChange={(e) => handleTemplateChange("stockTemplate", "skuColumn", e.target.value)}
+                placeholder="SKU"
               />
             </div>
           </CardContent>
@@ -249,12 +296,22 @@ export function SettingsPanel() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="salesItemColumn">Colonne Article</Label>
+              <Label htmlFor="salesNameColumn">Colonne Article</Label>
               <Input
-                id="salesItemColumn"
+                id="salesNameColumn"
                 value={settings.salesTemplate.nameColumn}
                 onChange={(e) => handleTemplateChange("salesTemplate", "nameColumn", e.target.value)}
                 placeholder="Article"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="salesDescriptionColumn">Colonne Description</Label>
+              <Input
+                id="salesDescriptionColumn"
+                value={settings.salesTemplate.descriptionColumn}
+                onChange={(e) => handleTemplateChange("salesTemplate", "descriptionColumn", e.target.value)}
+                placeholder="Description"
               />
             </div>
 
@@ -275,6 +332,26 @@ export function SettingsPanel() {
                 value={settings.salesTemplate.dateColumn}
                 onChange={(e) => handleTemplateChange("salesTemplate", "dateColumn", e.target.value)}
                 placeholder="Date"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="salesPaymentColumn">Colonne Paiement</Label>
+              <Input
+                id="salesPaymentColumn"
+                value={settings.salesTemplate.paymentColumn}
+                onChange={(e) => handleTemplateChange("salesTemplate", "paymentColumn", e.target.value)}
+                placeholder="Paiement"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="salesQuantityColumn">Colonne Quantité</Label>
+              <Input
+                id="salesQuantityColumn"
+                value={settings.salesTemplate.quantityColumn}
+                onChange={(e) => handleTemplateChange("salesTemplate", "quantityColumn", e.target.value)}
+                placeholder="Quantité"
               />
             </div>
           </CardContent>
