@@ -1,3 +1,13 @@
+import { useStore } from "@/lib/store"
+
+export const getSalesForCreator = (creator: string, month?: string) => {
+  const { monthlyData, currentMonth } = useStore.getState()
+  const targetMonth = month || currentMonth
+  const monthData = monthlyData[targetMonth]
+  if (!monthData) return []
+  return monthData.salesData.filter((sale) => sale.createur === creator && sale.statut !== "payee")
+}
+
 export function exportToCSV(data: any[], filename: string) {
   const csvContent = [
     Object.keys(data[0]).join(","),
@@ -35,7 +45,6 @@ export function formatDate(date: string | Date): string {
 export function parsePrice(priceString: string): number {
   if (!priceString) return 0
 
-  // Remplacer les virgules par des points pour le parsing
   const cleanPrice = priceString.toString().replace(",", ".")
   const parsed = Number.parseFloat(cleanPrice)
 
@@ -43,7 +52,6 @@ export function parsePrice(priceString: string): number {
 }
 
 export function calculateCommission(price: number, rate: number, paymentMethod: string): number {
-  // Pas de commission sur les paiements en espèces
   if (
     paymentMethod?.toLowerCase().includes("espèce") ||
     paymentMethod?.toLowerCase().includes("cash") ||
@@ -55,44 +63,23 @@ export function calculateCommission(price: number, rate: number, paymentMethod: 
   return price * (rate / 100)
 }
 
-export function identifyCreatorFromText(text: string, creators: string[]): string {
-  if (!text) return "Non identifié"
+export function identifyCreatorFromStock(
+  description: string,
+  stockData: any[],
+): { creator: string; confidence: number; matchedItem?: string } {
+  const descLower = description.toLowerCase().trim()
 
-  const textLower = text.toLowerCase()
-  const words = textLower.split(/\s+/).slice(0, 5) // Analyser les 5 premiers mots
+  for (const item of stockData) {
+    const itemNameLower = item.article.toLowerCase().trim()
 
-  for (const creator of creators) {
-    if (creator === "Non identifié") continue
-
-    const creatorLower = creator.toLowerCase()
-    const creatorWords = creatorLower.split(/\s+/)
-
-    // Vérification exacte du nom complet
-    if (textLower.includes(creatorLower)) {
-      return creator
+    if (descLower === itemNameLower) {
+      return { creator: item.createur, confidence: 1.0, matchedItem: item.article }
     }
 
-    // Vérification par mots individuels
-    const matchedWords = creatorWords.filter((word) =>
-      words.some(
-        (textWord) =>
-          textWord.includes(word) || word.includes(textWord) || textWord.startsWith(word) || word.startsWith(textWord),
-      ),
-    )
-
-    // Si tous les mots du créateur sont trouvés
-    if (matchedWords.length === creatorWords.length && creatorWords.length > 0) {
-      return creator
-    }
-
-    // Vérification par initiales pour les noms composés
-    if (creatorWords.length > 1) {
-      const initials = creatorWords.map((word) => word[0]).join("")
-      if (words.some((word) => word.includes(initials))) {
-        return creator
-      }
+    if (descLower.includes(itemNameLower) || itemNameLower.includes(descLower)) {
+      return { creator: item.createur, confidence: 0.8, matchedItem: item.article }
     }
   }
 
-  return "Non identifié"
+  return { creator: "Non identifié", confidence: 0 }
 }

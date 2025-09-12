@@ -1,177 +1,150 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Store, Upload, Users, Package, TrendingUp, LogOut, Shield, Settings, FileText } from "lucide-react"
+import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Upload, BarChart3, Users, FileText, Archive, Settings, Package, Calendar, DollarSign } from "lucide-react"
 import { useStore } from "@/lib/store"
-import LoginForm from "@/components/login-form"
-import { MonthSelector } from "@/components/month-selector"
-import { SalesManagement } from "@/components/sales-management"
-import { ImportManager } from "@/components/import-manager"
-import { SettingsPanel } from "@/components/settings-panel"
+import { ImportFiles } from "@/components/import-files"
+import { SalesAnalytics } from "@/components/sales-analytics"
 import { CreatorManagement } from "@/components/creator-management"
 import { PDFGenerator } from "@/components/pdf-generator"
 import { ArchiveManagement } from "@/components/archive-management"
-import { ImportFiles } from "@/components/import-files"
+import { SettingsPanel } from "@/components/settings-panel"
 import { StockOverview } from "@/components/stock-overview"
-import { SalesAnalytics } from "@/components/sales-analytics"
 
 export default function Home() {
+  const { creators, stockData, monthlyData, currentMonth, setCurrentMonth, settings } = useStore()
   const [activeTab, setActiveTab] = useState("import")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const { setAuthenticated } = useStore()
 
-  useEffect(() => {
-    checkAuth()
-  }, [])
+  // Obtenir tous les mois disponibles
+  const availableMonths = Object.keys(monthlyData).sort().reverse()
 
-  const checkAuth = async () => {
-    try {
-      const response = await fetch("/api/auth/check")
-      const data = await response.json()
-      console.log("Auth check result:", data)
-      setIsAuthenticated(data.authenticated)
-      setAuthenticated(data.authenticated)
-    } catch (error) {
-      console.error("Auth check error:", error)
-      setIsAuthenticated(false)
-      setAuthenticated(false)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleLogin = (success: boolean) => {
-    console.log("Login callback with success:", success)
-    setIsAuthenticated(success)
-    setAuthenticated(success)
-  }
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" })
-      setIsAuthenticated(false)
-      setAuthenticated(false)
-    } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error)
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-            <Shield className="w-10 h-10 text-white animate-pulse" />
-          </div>
-          <p className="text-gray-600 text-lg">Vérification de l'authentification...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} />
-  }
-
-  const tabs = [
-    { id: "import", label: "Import", icon: Upload },
-    { id: "ventes", label: "Ventes", icon: TrendingUp },
-    { id: "createurs", label: "Créateurs", icon: Users },
-    { id: "rapports", label: "Rapports", icon: FileText },
-    { id: "archives", label: "Archives", icon: Package },
-    { id: "parametres", label: "Paramètres", icon: Settings },
-    { id: "importFiles", label: "Import Files", icon: Upload },
-    { id: "stockOverview", label: "Stock Overview", icon: Package },
-    { id: "salesAnalytics", label: "Sales Analytics", icon: TrendingUp },
-  ]
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "import":
-        return <ImportManager />
-      case "ventes":
-        return <SalesManagement />
-      case "createurs":
-        return <CreatorManagement />
-      case "rapports":
-        return <PDFGenerator />
-      case "archives":
-        return <ArchiveManagement />
-      case "parametres":
-        return <SettingsPanel />
-      case "importFiles":
-        return <ImportFiles />
-      case "stockOverview":
-        return <StockOverview />
-      case "salesAnalytics":
-        return <SalesAnalytics />
-      default:
-        return <ImportManager />
-    }
-  }
+  // Calculer les statistiques du mois courant
+  const currentMonthData = monthlyData[currentMonth]
+  const currentMonthSales = currentMonthData?.salesData.filter((sale) => sale.statut !== "payee") || []
+  const currentMonthRevenue = currentMonthSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                <Store className="w-6 h-6 text-white" />
+              <div className="bg-blue-600 p-2 rounded-lg">
+                <Package className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Petit-Ruban</h1>
-                <p className="text-xs text-gray-600">Gestion Multi-Créateurs v17</p>
+                <h1 className="text-xl font-bold text-gray-900">{settings.shopName}</h1>
+                <p className="text-sm text-gray-500">Gestion Multi-Créateurs</p>
               </div>
             </div>
-
             <div className="flex items-center gap-4">
-              <MonthSelector />
-              <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-full">
-                <Shield className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium text-green-800">Sécurisé</span>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <Select value={currentMonth} onValueChange={setCurrentMonth}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableMonths.length > 0 ? (
+                      availableMonths.map((month) => (
+                        <SelectItem key={month} value={month}>
+                          {new Date(month + "-01").toLocaleDateString("fr-FR", { year: "numeric", month: "long" })}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value={currentMonth}>
+                        {new Date(currentMonth + "-01").toLocaleDateString("fr-FR", { year: "numeric", month: "long" })}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                Déconnexion
-              </button>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {creators.length}
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Package className="h-3 w-3" />
+                  {stockData.length}
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  {currentMonthRevenue.toFixed(0)}€
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab.id
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </nav>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="import" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Import
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Ventes
+            </TabsTrigger>
+            <TabsTrigger value="creators" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Créateurs
+            </TabsTrigger>
+            <TabsTrigger value="stock" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Stock
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Rapports
+            </TabsTrigger>
+            <TabsTrigger value="archives" className="flex items-center gap-2">
+              <Archive className="h-4 w-4" />
+              Archives
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Paramètres
+            </TabsTrigger>
+          </TabsList>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{renderTabContent()}</main>
+          <TabsContent value="import">
+            <ImportFiles />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <SalesAnalytics />
+          </TabsContent>
+
+          <TabsContent value="creators">
+            <CreatorManagement />
+          </TabsContent>
+
+          <TabsContent value="stock">
+            <StockOverview />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <PDFGenerator />
+          </TabsContent>
+
+          <TabsContent value="archives">
+            <ArchiveManagement />
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <SettingsPanel />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

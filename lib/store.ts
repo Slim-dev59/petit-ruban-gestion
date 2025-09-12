@@ -1,578 +1,356 @@
+"use client"
+
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-export interface Creator {
-  id: string
-  name: string
-  commission: number
-  isActive: boolean
-  createdAt: string
-}
-
-export interface StockItem {
-  id: string
-  name: string
-  creator: string
-  price: number
-  quantity: number
-  category?: string
-  sku?: string
-  lowStockThreshold?: number
-}
-
-export interface Sale {
-  id: string
-  itemName: string
-  creator: string
-  price: number
-  commission: number
+interface Sale {
   date: string
-  isValidated: boolean
-  paymentMethod?: string
-  originalData?: any
-}
-
-export interface Archive {
-  id: string
+  description: string
+  prix: string
+  paiement: string
   createur: string
-  periode: string
-  ventes: Sale[]
-  totalCA: number
-  totalCommission: number
-  netAVerser: number
-  statut: "en_attente" | "valide" | "paye"
-  dateCreation: string
-  validePar?: string
-  dateValidation?: string
+  quantity?: string
+  sku?: string
+  statut?: "active" | "payee"
+  paymentId?: string
+  commission?: string
 }
 
-export interface Virement {
-  id: string
-  archiveId: string
+interface StockItem {
   createur: string
-  montant: number
-  dateVirement: string
-  reference: string
-  banque: string
-  statut: "programme" | "effectue" | "echec"
-  notes: string
-  creePar: string
-  dateCreation: string
+  article: string
+  price: string
+  quantity: string
+  category: string
+  sku: string
+  lowStockThreshold: string
+  image?: string
 }
 
-export interface Payment {
+interface Payment {
   id: string
   createur: string
   montant: number
   dateVirement: string
   reference: string
   banque: string
-  notes: string
+  notes?: string
   creePar: string
   dateCreation: string
   ventesPayees: Sale[]
 }
 
-export interface MonthlyData {
-  creators: Creator[]
-  stock: StockItem[]
-  sales: Sale[]
-  archives: Archive[]
-  virements: Virement[]
-  payments: Payment[]
-  settings: {
-    defaultCommission: number
-    commissionRate: number
-    shopName: string
-    logo?: string
-    stockTemplate: {
-      nameColumn: string
-      creatorColumn: string
-      priceColumn: string
-      quantityColumn: string
-      skuColumn: string
-      articleColumn: string
-    }
-    salesTemplate: {
-      nameColumn: string
-      priceColumn: string
-      dateColumn: string
-      descriptionColumn: string
-      paymentColumn: string
-      quantityColumn: string
-    }
-  }
+interface Settings {
+  commissionRate: number
+  shopName: string
+  autoApplyCommission: boolean
+  logo?: string
 }
 
-interface StoreState {
-  currentMonth: string
-  monthlyData: Record<string, MonthlyData>
-  isAuthenticated: boolean
+interface MonthlyData {
+  salesData: Sale[]
+  payments: Payment[]
+}
+
+interface Store {
   creators: string[]
-  salesData: any[]
-  stockData: any[]
-  archives: Archive[]
-  virements: Virement[]
-  settings: MonthlyData["settings"]
+  stockData: StockItem[]
+  monthlyData: Record<string, MonthlyData>
+  currentMonth: string
+  settings: Settings
 
-  // Actions
+  // Gestion des mois
   setCurrentMonth: (month: string) => void
-  getCurrentData: () => MonthlyData
-  setAuthenticated: (authenticated: boolean) => void
+  getCurrentMonthData: () => MonthlyData
 
-  // Creators
   addCreator: (name: string) => void
   removeCreator: (name: string) => void
-  updateCreator: (id: string, updates: Partial<Creator>) => void
-  deleteCreator: (id: string) => void
+  removeAllCreators: () => void
+  importSalesData: (data: Sale[], month?: string) => void
+  importStockData: (data: any[]) => void
+  getSalesForCreator: (creator: string, month?: string) => Sale[]
+  getStockForCreator: (creator: string) => StockItem[]
+  updateSettings: (settings: Settings) => void
+  updateCreatorMapping: (mapping: Record<string, string>) => void
+  resetAllData: () => void
+  clearStockData: () => void
+  clearSalesData: (month?: string) => void
 
-  // Stock
-  setStock: (stock: StockItem[]) => void
-  setStockData: (stock: any[]) => void
-  addStockItem: (item: Omit<StockItem, "id">) => void
-  updateStockItem: (id: string, updates: Partial<StockItem>) => void
-  deleteStockItem: (id: string) => void
-  getStockForCreator: (creator: string) => any[]
-
-  // Sales
-  setSales: (sales: Sale[]) => void
-  setSalesData: (sales: any[]) => void
-  addSale: (sale: Omit<Sale, "id">) => void
-  updateSale: (id: string, updates: Partial<Sale>) => void
-  deleteSale: (id: string) => void
-  getSalesForCreator: (creator: string) => any[]
-  getAllSalesForCreator: (creator: string) => any[]
-  getPaidSalesForCreator: (creator: string) => any[]
-
-  // Archives
-  createArchive: (creator: string, period: string) => string
-  validateArchive: (archiveId: string, validatedBy: string) => void
-  getArchivesForCreator: (creator: string) => Archive[]
-
-  // Virements
-  addVirement: (virement: Omit<Virement, "id" | "dateCreation">) => void
-  updateVirementStatus: (virementId: string, status: Virement["statut"]) => void
-  getVirementsForArchive: (archiveId: string) => Virement[]
-
-  // Payments
+  addPayment: (payment: Omit<Payment, "id" | "dateCreation">, month?: string) => void
+  getPaymentsForCreator: (creator: string, month?: string) => Payment[]
   payCreatorAndReset: (
     creator: string,
-    paymentData: Omit<Payment, "id" | "dateCreation" | "ventesPayees" | "montant">,
+    paymentData: Omit<Payment, "id" | "dateCreation" | "createur" | "ventesPayees">,
+    month?: string,
   ) => void
-  getPaymentsForCreator: (creator: string) => Payment[]
+  getAllSalesForCreator: (creator: string, month?: string) => Sale[]
+  getPaidSalesForCreator: (creator: string, month?: string) => Sale[]
 
-  // Settings
-  updateSettings: (settings: Partial<MonthlyData["settings"]>) => void
-}
-
-const defaultSettings = {
-  defaultCommission: 1.75,
-  commissionRate: 1.75,
-  shopName: "Petit-Ruban",
-  stockTemplate: {
-    nameColumn: "Nom",
-    creatorColumn: "Créateur",
-    priceColumn: "Prix",
-    quantityColumn: "Quantité",
-    skuColumn: "SKU",
-    articleColumn: "Article",
-  },
-  salesTemplate: {
-    nameColumn: "Article",
-    priceColumn: "Prix",
-    dateColumn: "Date",
-    descriptionColumn: "Description",
-    paymentColumn: "Paiement",
-    quantityColumn: "Quantité",
-  },
+  // Nouvelles fonctions pour les données globales
+  salesData: Sale[] // Données du mois courant pour compatibilité
+  payments: Payment[] // Paiements du mois courant pour compatibilité
 }
 
 const getDefaultMonthlyData = (): MonthlyData => ({
-  creators: [],
-  stock: [],
-  sales: [],
-  archives: [],
-  virements: [],
+  salesData: [],
   payments: [],
-  settings: defaultSettings,
 })
 
-export const useStore = create<StoreState>()(
+export const useStore = create<Store>()(
   persist(
     (set, get) => ({
-      currentMonth: new Date().toISOString().slice(0, 7),
-      monthlyData: {},
-      isAuthenticated: false,
       creators: [],
-      salesData: [],
       stockData: [],
-      archives: [],
-      virements: [],
-      settings: defaultSettings,
+      monthlyData: {},
+      currentMonth: new Date().toISOString().slice(0, 7), // Format YYYY-MM
+      settings: {
+        commissionRate: 1.75,
+        shopName: "Ma Boutique Multi-Créateurs",
+        autoApplyCommission: true,
+      },
+
+      // Propriétés calculées pour compatibilité
+      get salesData() {
+        const { monthlyData, currentMonth } = get()
+        return monthlyData[currentMonth]?.salesData || []
+      },
+
+      get payments() {
+        const { monthlyData, currentMonth } = get()
+        return monthlyData[currentMonth]?.payments || []
+      },
 
       setCurrentMonth: (month: string) => {
         set({ currentMonth: month })
       },
 
-      getCurrentData: () => {
-        const { currentMonth, monthlyData } = get()
+      getCurrentMonthData: () => {
+        const { monthlyData, currentMonth } = get()
         return monthlyData[currentMonth] || getDefaultMonthlyData()
       },
 
-      setAuthenticated: (authenticated: boolean) => {
-        set({ isAuthenticated: authenticated })
+      addCreator: (name) => {
+        set((state) => ({
+          creators: [...state.creators.filter((c) => c !== name), name],
+        }))
       },
 
-      addCreator: (name: string) => {
-        const { creators } = get()
-        if (!creators.includes(name)) {
-          set({ creators: [...creators, name] })
-        }
+      removeCreator: (name) => {
+        set((state) => ({
+          creators: state.creators.filter((c) => c !== name),
+        }))
       },
 
-      removeCreator: (name: string) => {
-        const { creators } = get()
-        set({ creators: creators.filter((c) => c !== name) })
+      removeAllCreators: () => {
+        set({ creators: [] })
       },
 
-      updateCreator: (id: string, updates: Partial<Creator>) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              creators: currentData.creators.map((creator) =>
-                creator.id === id ? { ...creator, ...updates } : creator,
-              ),
-            },
-          },
-        })
-      },
-
-      deleteCreator: (id: string) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              creators: currentData.creators.filter((creator) => creator.id !== id),
-            },
-          },
-        })
-      },
-
-      setStock: (stock: StockItem[]) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              stock,
-            },
-          },
-        })
-      },
-
-      setStockData: (stock: any[]) => {
-        set({ stockData: stock })
-      },
-
-      addStockItem: (item: Omit<StockItem, "id">) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        const newItem: StockItem = {
-          ...item,
-          id: Date.now().toString(),
-        }
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              stock: [...currentData.stock, newItem],
-            },
-          },
-        })
-      },
-
-      updateStockItem: (id: string, updates: Partial<StockItem>) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              stock: currentData.stock.map((item) => (item.id === id ? { ...item, ...updates } : item)),
-            },
-          },
-        })
-      },
-
-      deleteStockItem: (id: string) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              stock: currentData.stock.filter((item) => item.id !== id),
-            },
-          },
-        })
-      },
-
-      getStockForCreator: (creator: string) => {
-        const { stockData } = get()
-        return stockData.filter((item) => item.createur === creator)
-      },
-
-      setSales: (sales: Sale[]) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              sales,
-            },
-          },
-        })
-      },
-
-      setSalesData: (sales: any[]) => {
-        set({ salesData: sales })
-      },
-
-      addSale: (sale: Omit<Sale, "id">) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        const newSale: Sale = {
+      importSalesData: (data: Sale[], month?: string) => {
+        const targetMonth = month || get().currentMonth
+        const salesWithStatus = data.map((sale) => ({
           ...sale,
-          id: Date.now().toString(),
-        }
+          statut: "active" as const,
+        }))
 
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              sales: [...currentData.sales, newSale],
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                salesData: [...currentData.salesData, ...salesWithStatus],
+              },
             },
+          }
+        })
+
+        console.log(`${salesWithStatus.length} ventes importées pour ${targetMonth}`)
+      },
+
+      importStockData: (data) => {
+        console.log("Import stock data - données reçues:", data.length)
+
+        const processedData: StockItem[] = data.map((item: any) => ({
+          createur: item.createur || "",
+          article: item.article || "",
+          price: item.price || "0",
+          quantity: item.quantity || "0",
+          category: item.category || "",
+          sku: item.sku || "",
+          lowStockThreshold: item.lowStockThreshold || "0",
+          image: item.image || "",
+        }))
+
+        // Ajouter automatiquement les créateurs trouvés
+        const creatorsFound = [...new Set(processedData.map((item) => item.createur))]
+        creatorsFound.forEach((creator) => {
+          if (creator && !get().creators.includes(creator)) {
+            get().addCreator(creator)
+          }
+        })
+
+        console.log("Créateurs ajoutés:", creatorsFound)
+        console.log("Articles traités:", processedData.length)
+
+        set({ stockData: processedData })
+      },
+
+      getSalesForCreator: (creator, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.salesData.filter((sale) => sale.createur === creator && sale.statut !== "payee")
+      },
+
+      getStockForCreator: (creator) => {
+        return get().stockData.filter((item) => item.createur === creator)
+      },
+
+      updateSettings: (settings) => {
+        set({ settings })
+      },
+
+      updateCreatorMapping: (mapping) => {
+        set((state) => {
+          const updatedStockData = state.stockData.map((item) => ({
+            ...item,
+            createur: mapping[item.createur] || item.createur,
+          }))
+
+          return {
+            stockData: updatedStockData,
+          }
+        })
+      },
+
+      resetAllData: () => {
+        set({
+          creators: [],
+          stockData: [],
+          monthlyData: {},
+          settings: {
+            commissionRate: 1.75,
+            shopName: "Ma Boutique Multi-Créateurs",
+            autoApplyCommission: true,
           },
         })
       },
 
-      updateSale: (id: string, updates: Partial<Sale>) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
+      clearStockData: () => {
+        set({ stockData: [] })
+      },
 
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              sales: currentData.sales.map((sale) => (sale.id === id ? { ...sale, ...updates } : sale)),
+      clearSalesData: (month) => {
+        const targetMonth = month || get().currentMonth
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                salesData: [],
+              },
             },
-          },
+          }
         })
       },
 
-      deleteSale: (id: string) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              sales: currentData.sales.filter((sale) => sale.id !== id),
-            },
-          },
-        })
-      },
-
-      getSalesForCreator: (creator: string) => {
-        const { salesData } = get()
-        return salesData.filter((sale) => sale.createur === creator && !sale.paid)
-      },
-
-      getAllSalesForCreator: (creator: string) => {
-        const { salesData } = get()
-        return salesData.filter((sale) => sale.createur === creator)
-      },
-
-      getPaidSalesForCreator: (creator: string) => {
-        const { salesData } = get()
-        return salesData.filter((sale) => sale.createur === creator && sale.paid)
-      },
-
-      createArchive: (creator: string, period: string) => {
-        const { archives, getSalesForCreator, settings } = get()
-        const sales = getSalesForCreator(creator)
-
-        const totalCA = sales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
-        const totalCommission = sales.reduce((sum, sale) => {
-          const price = Number.parseFloat(sale.prix || "0")
-          const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
-          return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
-        }, 0)
-
-        const newArchive: Archive = {
-          id: Date.now().toString(),
-          createur: creator,
-          periode: period,
-          ventes: sales,
-          totalCA,
-          totalCommission,
-          netAVerser: totalCA - totalCommission,
-          statut: "en_attente",
-          dateCreation: new Date().toISOString(),
-        }
-
-        set({ archives: [...archives, newArchive] })
-        return newArchive.id
-      },
-
-      validateArchive: (archiveId: string, validatedBy: string) => {
-        const { archives } = get()
-        set({
-          archives: archives.map((archive) =>
-            archive.id === archiveId
-              ? {
-                  ...archive,
-                  statut: "valide" as const,
-                  validePar: validatedBy,
-                  dateValidation: new Date().toISOString(),
-                }
-              : archive,
-          ),
-        })
-      },
-
-      getArchivesForCreator: (creator: string) => {
-        const { archives } = get()
-        return archives.filter((archive) => archive.createur === creator)
-      },
-
-      addVirement: (virement: Omit<Virement, "id" | "dateCreation">) => {
-        const { virements, archives } = get()
-        const newVirement: Virement = {
-          ...virement,
-          id: Date.now().toString(),
-          dateCreation: new Date().toISOString(),
-        }
-
-        // Mettre à jour le statut de l'archive
-        const updatedArchives = archives.map((archive) =>
-          archive.id === virement.archiveId ? { ...archive, statut: "paye" as const } : archive,
-        )
-
-        set({
-          virements: [...virements, newVirement],
-          archives: updatedArchives,
-        })
-      },
-
-      updateVirementStatus: (virementId: string, status: Virement["statut"]) => {
-        const { virements } = get()
-        set({
-          virements: virements.map((virement) =>
-            virement.id === virementId ? { ...virement, statut: status } : virement,
-          ),
-        })
-      },
-
-      getVirementsForArchive: (archiveId: string) => {
-        const { virements } = get()
-        return virements.filter((virement) => virement.archiveId === archiveId)
-      },
-
-      payCreatorAndReset: (
-        creator: string,
-        paymentData: Omit<Payment, "id" | "dateCreation" | "ventesPayees" | "montant">,
-      ) => {
-        const { getSalesForCreator, salesData, settings } = get()
-        const sales = getSalesForCreator(creator)
-
-        const totalSales = sales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
-        const totalCommission = sales.reduce((sum, sale) => {
-          const price = Number.parseFloat(sale.prix || "0")
-          const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
-          return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
-        }, 0)
-
-        const newPayment: Payment = {
+      addPayment: (paymentData, month) => {
+        const targetMonth = month || get().currentMonth
+        const payment: Payment = {
           ...paymentData,
-          id: Date.now().toString(),
+          id: `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           dateCreation: new Date().toISOString(),
-          montant: totalSales - totalCommission,
-          ventesPayees: sales,
         }
 
-        // Marquer les ventes comme payées
-        const updatedSalesData = salesData.map((sale) =>
-          sales.some((s) => s.id === sale.id) ? { ...sale, paid: true } : sale,
-        )
-
-        const { monthlyData, currentMonth } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-
-        set({
-          salesData: updatedSalesData,
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              payments: [...currentData.payments, newPayment],
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                payments: [...currentData.payments, payment],
+              },
             },
-          },
+          }
         })
       },
 
-      getPaymentsForCreator: (creator: string) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
-        return currentData.payments.filter((payment) => payment.createur === creator)
+      getPaymentsForCreator: (creator: string, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.payments.filter((payment) => payment.createur === creator)
       },
 
-      updateSettings: (settings: Partial<MonthlyData["settings"]>) => {
-        const { currentMonth, monthlyData } = get()
-        const currentData = monthlyData[currentMonth] || getDefaultMonthlyData()
+      payCreatorAndReset: (creator: string, paymentData, month) => {
+        const targetMonth = month || get().currentMonth
+        const state = get()
+        const monthData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+        const creatorSales = monthData.salesData.filter((sale) => sale.createur === creator && sale.statut !== "payee")
 
-        set({
-          settings: { ...get().settings, ...settings },
-          monthlyData: {
-            ...monthlyData,
-            [currentMonth]: {
-              ...currentData,
-              settings: { ...currentData.settings, ...settings },
+        const totalSales = creatorSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+        const totalCommission = creatorSales.reduce((sum, sale) => {
+          const price = Number.parseFloat(sale.prix || "0")
+          const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+          return sum + (isNotCash ? price * (state.settings.commissionRate / 100) : 0)
+        }, 0)
+        const netAmount = totalSales - totalCommission
+
+        const paymentId = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const payment: Payment = {
+          id: paymentId,
+          createur: creator,
+          montant: netAmount,
+          dateVirement: paymentData.dateVirement,
+          reference: paymentData.reference,
+          banque: paymentData.banque,
+          notes: paymentData.notes,
+          creePar: paymentData.creePar,
+          dateCreation: new Date().toISOString(),
+          ventesPayees: [...creatorSales],
+        }
+
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                salesData: currentData.salesData.map((sale) =>
+                  sale.createur === creator && sale.statut !== "payee"
+                    ? { ...sale, statut: "payee" as const, paymentId: paymentId }
+                    : sale,
+                ),
+                payments: [...currentData.payments, payment],
+              },
             },
-          },
+          }
         })
+
+        console.log(`Paiement effectué pour ${creator} (${targetMonth}): ${netAmount.toFixed(2)}€`)
+        console.log(`${creatorSales.length} ventes archivées sous le paiement ${paymentId}`)
+      },
+
+      getAllSalesForCreator: (creator, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.salesData.filter((sale) => sale.createur === creator)
+      },
+
+      getPaidSalesForCreator: (creator, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.salesData.filter((sale) => sale.createur === creator && sale.statut === "payee")
       },
     }),
     {
-      name: "petit-ruban-storage",
-      version: 1,
+      name: "boutique-storage",
     },
   ),
 )

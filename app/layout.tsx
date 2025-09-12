@@ -6,8 +6,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Petit-Ruban - Gestion Multi-Créateurs",
-  description: "Système de gestion pour boutique multi-créateurs",
+  title: "Boutique Multi-Créateurs",
+  description: "Gestion de boutique multi-créateurs avec suivi des ventes et commissions",
     generator: 'v0.app'
 }
 

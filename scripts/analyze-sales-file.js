@@ -1,73 +1,165 @@
-// Script pour analyser le fichier de ventes et identifier les bonnes colonnes
+// Script pour analyser le nouveau fichier de ventes SumUp
 const salesFileUrl =
-  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Rapport-ventes-2025-08-04_2025-08-10-pq5YgZJaQJSSoTQ1ezbkaSFXDMULGk.csv"
+  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Rapport-ventes-2025-06-21_2025-09-12-uLgt2l5BApmQh0ud9qww4yEAjPUMSs.csv"
 
 async function analyzeSalesFile() {
   try {
-    console.log("Récupération du fichier de ventes...")
+    console.log("Récupération du fichier de ventes SumUp...")
     const response = await fetch(salesFileUrl)
     const csvText = await response.text()
 
-    console.log("Contenu du fichier (premiers 1500 caractères):")
-    console.log(csvText.substring(0, 1500))
+    console.log("Contenu du fichier (premiers 2000 caractères):")
+    console.log(csvText.substring(0, 2000))
 
-    // Parse CSV
+    // Parse CSV avec gestion des guillemets
     const lines = csvText.split("\n")
     const headers = lines[0].split(",").map((h) => h.replace(/"/g, "").trim())
 
     console.log("\n=== STRUCTURE DU FICHIER ===")
     headers.forEach((header, index) => {
-      const letter = String.fromCharCode(65 + index) // A, B, C, etc.
-      console.log(`Colonne ${letter} (index ${index}): ${header}`)
+      console.log(`Colonne ${index}: ${header}`)
     })
 
-    // Analyser les 5 premières lignes de données
+    // Analyser les 10 premières lignes de données
     console.log("\n=== ÉCHANTILLON DE DONNÉES ===")
-    for (let i = 1; i <= Math.min(5, lines.length - 1); i++) {
-      const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim())
+    for (let i = 1; i <= Math.min(10, lines.length - 1); i++) {
+      const line = lines[i]
+      if (!line.trim()) continue
+
+      // Parsing CSV amélioré
+      const values = []
+      let current = ""
+      let inQuotes = false
+
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j]
+        if (char === '"') {
+          inQuotes = !inQuotes
+        } else if (char === "," && !inQuotes) {
+          values.push(current.trim())
+          current = ""
+        } else {
+          current += char
+        }
+      }
+      values.push(current.trim())
+
       console.log(`\n--- Ligne ${i} ---`)
       headers.forEach((header, index) => {
-        const letter = String.fromCharCode(65 + index)
         if (values[index]) {
-          console.log(`  ${letter}: ${header} = "${values[index]}"`)
+          console.log(`  ${header}: "${values[index]}"`)
         }
       })
     }
 
-    // Identifier spécifiquement les colonnes importantes
-    console.log("\n=== IDENTIFICATION DES COLONNES CLÉS ===")
+    // Analyser les types de transactions
+    console.log("\n=== ANALYSE DES TYPES ===")
+    const types = new Set()
+    const paymentMethods = new Set()
+    const sampleDescriptions = []
 
-    // Chercher la colonne Description
-    const descriptionIndex = headers.findIndex((h) => h.toLowerCase().includes("description"))
-    if (descriptionIndex !== -1) {
-      const letter = String.fromCharCode(65 + descriptionIndex)
-      console.log(
-        `✓ Description trouvée en colonne ${letter} (index ${descriptionIndex}): "${headers[descriptionIndex]}"`,
-      )
-    }
+    for (let i = 1; i <= Math.min(50, lines.length - 1); i++) {
+      const line = lines[i]
+      if (!line.trim()) continue
 
-    // Chercher la colonne Prix/Montant (colonne H = index 7)
-    if (headers[7]) {
-      console.log(`✓ Colonne H (index 7): "${headers[7]}"`)
-    }
+      const values = []
+      let current = ""
+      let inQuotes = false
 
-    // Montrer quelques valeurs de la colonne H
-    console.log("\n=== VALEURS COLONNE H (Prix) ===")
-    for (let i = 1; i <= Math.min(5, lines.length - 1); i++) {
-      const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim())
-      if (values[7]) {
-        console.log(`Ligne ${i}, Colonne H: "${values[7]}"`)
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j]
+        if (char === '"') {
+          inQuotes = !inQuotes
+        } else if (char === "," && !inQuotes) {
+          values.push(current.trim())
+          current = ""
+        } else {
+          current += char
+        }
+      }
+      values.push(current.trim())
+
+      const type = values[1] || ""
+      const paymentMethod = values[3] || ""
+      const description = values[5] || ""
+
+      if (type) types.add(type)
+      if (paymentMethod) paymentMethods.add(paymentMethod)
+      if (description && sampleDescriptions.length < 10) {
+        sampleDescriptions.push(description)
       }
     }
 
-    // Montrer quelques valeurs de la colonne Description
-    if (descriptionIndex !== -1) {
-      console.log(`\n=== VALEURS COLONNE DESCRIPTION (${String.fromCharCode(65 + descriptionIndex)}) ===`)
-      for (let i = 1; i <= Math.min(5, lines.length - 1); i++) {
-        const values = lines[i].split(",").map((v) => v.replace(/"/g, "").trim())
-        if (values[descriptionIndex]) {
-          console.log(`Ligne ${i}: "${values[descriptionIndex]}"`)
+    console.log("Types de transactions:", Array.from(types))
+    console.log("Moyens de paiement:", Array.from(paymentMethods))
+    console.log("Échantillon descriptions:", sampleDescriptions)
+
+    // Analyser les dates
+    console.log("\n=== ANALYSE DES DATES ===")
+    const dates = []
+    for (let i = 1; i <= Math.min(20, lines.length - 1); i++) {
+      const line = lines[i]
+      if (!line.trim()) continue
+
+      const values = []
+      let current = ""
+      let inQuotes = false
+
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j]
+        if (char === '"') {
+          inQuotes = !inQuotes
+        } else if (char === "," && !inQuotes) {
+          values.push(current.trim())
+          current = ""
+        } else {
+          current += char
         }
+      }
+      values.push(current.trim())
+
+      const dateStr = values[0] || ""
+      if (dateStr) {
+        dates.push(dateStr)
+      }
+    }
+
+    console.log("Échantillon de dates:", dates.slice(0, 5))
+
+    // Test de parsing de date
+    const testDate = dates[0]
+    if (testDate) {
+      console.log(`\nTest parsing date: "${testDate}"`)
+      try {
+        const months = {
+          janv: "01",
+          févr: "02",
+          mars: "03",
+          avr: "04",
+          mai: "05",
+          juin: "06",
+          juil: "07",
+          août: "08",
+          sept: "09",
+          oct: "10",
+          nov: "11",
+          déc: "12",
+        }
+
+        const parts = testDate.split(" ")
+        const day = parts[0].padStart(2, "0")
+        const monthName = parts[1].replace(".", "")
+        const year = parts[2]
+        const time = parts[3] || "00:00"
+
+        const monthNum = months[monthName]
+        const isoDate = `${year}-${monthNum}-${day}T${time}:00`
+        const parsedDate = new Date(isoDate)
+        const month = `${year}-${monthNum}`
+
+        console.log(`Résultat: ${parsedDate.toISOString()} -> Mois: ${month}`)
+      } catch (error) {
+        console.log("Erreur parsing:", error.message)
       }
     }
   } catch (error) {

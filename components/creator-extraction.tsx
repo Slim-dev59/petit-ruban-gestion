@@ -1,205 +1,119 @@
 "use client"
-
-import { useState } from "react"
-import { useStore } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Edit2, Trash2, Plus, Check, X, Users } from "lucide-react"
+import { Settings, Info } from "lucide-react"
+import { useStore } from "@/lib/store"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export function CreatorExtraction() {
-  const { getCurrentData, addCreator, updateCreator, deleteCreator } = useStore()
-  const currentData = getCurrentData()
-  const [isAdding, setIsAdding] = useState(false)
-  const [newCreatorName, setNewCreatorName] = useState("")
-  const [newCreatorCommission, setNewCreatorCommission] = useState(1.75)
-  const [editingCreator, setEditingCreator] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState<{ name: string; commission: number }>({ name: "", commission: 1.75 })
+  const { stockData, creators } = useStore()
 
-  const handleAddCreator = () => {
-    addCreator({
-      name: newCreatorName,
-      commission: newCreatorCommission,
-      isActive: true,
-    })
-    setIsAdding(false)
-    setNewCreatorName("")
-    setNewCreatorCommission(1.75)
-  }
-
-  const handleEditCreator = (creator: any) => {
-    setEditingCreator(creator.id)
-    setEditValues({ name: creator.name, commission: creator.commission })
-  }
-
-  const handleSaveEdit = (creatorId: string) => {
-    updateCreator(creatorId, {
-      name: editValues.name,
-      commission: editValues.commission,
-    })
-    setEditingCreator(null)
-  }
-
-  const handleCancelEdit = () => {
-    setEditingCreator(null)
-    setEditValues({ name: "", commission: 1.75 })
-  }
-
-  const handleDeleteCreator = (creatorId: string) => {
-    deleteCreator(creatorId)
-  }
+  // Analyser les données pour montrer les créateurs détectés
+  const detectedCreators = [...new Set(stockData.map((item) => item.createur))].filter((c) => c.trim() !== "")
 
   return (
     <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestion des Créateurs</h2>
-          <p className="text-gray-600">Ajoutez, modifiez ou supprimez les créateurs de votre boutique</p>
-        </div>
-      </div>
-
-      {/* Ajout d'un créateur */}
       <Card>
         <CardHeader>
-          <CardTitle>Ajouter un Créateur</CardTitle>
-          <CardDescription>Entrez les informations du nouveau créateur</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Extraction automatique des créateurs
+          </CardTitle>
+          <CardDescription>
+            Les créateurs sont automatiquement extraits du nom des articles (Item name) lors de l'import du stock
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isAdding ? (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="creatorName">Nom du créateur</Label>
-                <Input
-                  id="creatorName"
-                  value={newCreatorName}
-                  onChange={(e) => setNewCreatorName(e.target.value)}
-                  placeholder="Nom du créateur"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="creatorCommission">Commission (%)</Label>
-                <Input
-                  id="creatorCommission"
-                  type="number"
-                  step="0.01"
-                  value={newCreatorCommission}
-                  onChange={(e) => setNewCreatorCommission(Number.parseFloat(e.target.value))}
-                  placeholder="1.75"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setIsAdding(false)}>
-                  Annuler
-                </Button>
-                <Button onClick={handleAddCreator}>Ajouter</Button>
-              </div>
-            </>
-          ) : (
-            <Button onClick={() => setIsAdding(true)} className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Ajouter un créateur
-            </Button>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Nouvelle logique :</strong> Le créateur correspond au nom de l'article (Item name) et l'article
+              correspond à la variation. Cette extraction se fait automatiquement lors de l'import du fichier stock.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <h4 className="font-medium">Créateurs détectés dans le stock ({detectedCreators.length})</h4>
+            <div className="flex flex-wrap gap-2">
+              {detectedCreators.map((creator) => (
+                <Badge key={creator} variant="secondary">
+                  {creator}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-medium">Créateurs configurés ({creators.length})</h4>
+            <div className="flex flex-wrap gap-2">
+              {creators.map((creator) => (
+                <Badge key={creator} variant="default">
+                  {creator}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Aperçu de la structure</CardTitle>
+          <CardDescription>Vérifiez comment les données sont interprétées</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Créateur (Item name)</TableHead>
+                <TableHead>Article (Variations)</TableHead>
+                <TableHead>Catégorie</TableHead>
+                <TableHead>Prix</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>SKU</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {stockData.slice(0, 10).map((item, index) => (
+                <TableRow key={index}>
+                  <TableCell>
+                    <Badge variant="outline">{item.createur}</Badge>
+                  </TableCell>
+                  <TableCell className="font-medium">{item.article}</TableCell>
+                  <TableCell>{item.category}</TableCell>
+                  <TableCell>{item.price}€</TableCell>
+                  <TableCell>{item.quantity}</TableCell>
+                  <TableCell className="font-mono text-sm">{item.sku}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {stockData.length > 10 && (
+            <p className="text-sm text-muted-foreground mt-2">... et {stockData.length - 10} autres articles</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Liste des créateurs */}
       <Card>
         <CardHeader>
-          <CardTitle>Liste des Créateurs</CardTitle>
-          <CardDescription>Visualisez et modifiez les créateurs existants</CardDescription>
+          <CardTitle>Règles d'extraction</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentData.creators.map((creator) => (
-                  <TableRow key={creator.id}>
-                    <TableCell className="font-medium">
-                      {editingCreator === creator.id ? (
-                        <Input
-                          value={editValues.name}
-                          onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
-                        />
-                      ) : (
-                        creator.name
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingCreator === creator.id ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editValues.commission}
-                          onChange={(e) =>
-                            setEditValues({ ...editValues, commission: Number.parseFloat(e.target.value) })
-                          }
-                        />
-                      ) : (
-                        `${creator.commission}%`
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {editingCreator === creator.id ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleSaveEdit(creator.id)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Check className="w-4 h-4 text-green-600" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0">
-                              <X className="w-4 h-4 text-red-600" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEditCreator(creator)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteCreator(creator.id)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {currentData.creators.length === 0 && (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Aucun créateur trouvé</p>
-              <p className="text-sm text-gray-400">Ajoutez des créateurs pour commencer</p>
-            </div>
-          )}
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            • <strong>Créateur</strong> : Correspond au champ "Item name" du fichier d'import
+          </p>
+          <p>
+            • <strong>Article</strong> : Correspond au champ "Variations" du fichier d'import
+          </p>
+          <p>
+            • <strong>Ajout automatique</strong> : Les créateurs sont automatiquement ajoutés à la liste lors de
+            l'import
+          </p>
+          <p>
+            • <strong>Recherche ventes</strong> : Lors de l'import des ventes, la recherche se fait dans les 4 premiers
+            mots de la description
+          </p>
         </CardContent>
       </Card>
     </div>

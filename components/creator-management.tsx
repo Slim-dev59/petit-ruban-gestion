@@ -1,97 +1,117 @@
 "use client"
 
 import { useState } from "react"
-import { useStore } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Edit2, Trash2, Plus, Check, X, Users } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Users, Plus, Trash2, AlertTriangle, CheckCircle, Package, DollarSign } from "lucide-react"
+import { useStore } from "@/lib/store"
 
 export function CreatorManagement() {
-  const { creators, addCreator, removeCreator } = useStore()
-  const [isAdding, setIsAdding] = useState(false)
+  const { creators, addCreator, removeCreator, stockData, monthlyData, currentMonth } = useStore()
   const [newCreatorName, setNewCreatorName] = useState("")
-  const [editingCreator, setEditingCreator] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState("")
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [creatorToDelete, setCreatorToDelete] = useState("")
+  const [addStatus, setAddStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
   const handleAddCreator = () => {
-    if (newCreatorName.trim()) {
-      addCreator(newCreatorName.trim())
-      setIsAdding(false)
-      setNewCreatorName("")
+    if (!newCreatorName.trim()) {
+      setAddStatus({ type: "error", message: "Veuillez saisir un nom de créateur" })
+      return
     }
-  }
 
-  const handleEditCreator = (creator: string) => {
-    setEditingCreator(creator)
-    setEditValue(creator)
-  }
-
-  const handleSaveEdit = (oldName: string) => {
-    if (editValue.trim() && editValue !== oldName) {
-      removeCreator(oldName)
-      addCreator(editValue.trim())
+    if (creators.includes(newCreatorName.trim())) {
+      setAddStatus({ type: "error", message: "Ce créateur existe déjà" })
+      return
     }
-    setEditingCreator(null)
-    setEditValue("")
+
+    addCreator(newCreatorName.trim())
+    setNewCreatorName("")
+    setAddStatus({ type: "success", message: `Créateur "${newCreatorName.trim()}" ajouté avec succès` })
+    setTimeout(() => setAddStatus(null), 3000)
   }
 
-  const handleCancelEdit = () => {
-    setEditingCreator(null)
-    setEditValue("")
+  const handleDeleteCreator = () => {
+    removeCreator(creatorToDelete)
+    setShowDeleteDialog(false)
+    setCreatorToDelete("")
   }
 
-  const handleDeleteCreator = (creator: string) => {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer le créateur "${creator}" ?`)) {
-      removeCreator(creator)
-    }
+  const getCreatorStats = (creator: string) => {
+    const stockItems = stockData.filter((item) => item.createur === creator).length
+
+    // Compter les ventes sur tous les mois
+    let totalSales = 0
+    let totalRevenue = 0
+
+    Object.values(monthlyData).forEach((monthData) => {
+      const creatorSales = monthData.salesData.filter((sale) => sale.createur === creator)
+      totalSales += creatorSales.length
+      totalRevenue += creatorSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+    })
+
+    return { stockItems, totalSales, totalRevenue }
   }
 
   return (
     <div className="space-y-6">
-      {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestion des Créateurs</h2>
-          <p className="text-gray-600">Ajoutez, modifiez ou supprimez les créateurs de votre boutique</p>
+          <h2 className="text-2xl font-bold">Gestion des créateurs</h2>
+          <p className="text-muted-foreground">Ajoutez et gérez vos créateurs</p>
         </div>
+        <Badge variant="outline" className="flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          {creators.length} créateurs
+        </Badge>
       </div>
 
-      {/* Ajout d'un créateur */}
+      {/* Ajout de créateur */}
       <Card>
         <CardHeader>
-          <CardTitle>Ajouter un Créateur</CardTitle>
-          <CardDescription>Entrez le nom du nouveau créateur</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5" />
+            Ajouter un créateur
+          </CardTitle>
+          <CardDescription>Ajoutez un nouveau créateur à votre boutique</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isAdding ? (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="creatorName">Nom du créateur</Label>
-                <Input
-                  id="creatorName"
-                  value={newCreatorName}
-                  onChange={(e) => setNewCreatorName(e.target.value)}
-                  placeholder="Nom du créateur"
-                  onKeyPress={(e) => e.key === "Enter" && handleAddCreator()}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setIsAdding(false)}>
-                  Annuler
-                </Button>
-                <Button onClick={handleAddCreator} disabled={!newCreatorName.trim()}>
-                  Ajouter
-                </Button>
-              </div>
-            </>
-          ) : (
-            <Button onClick={() => setIsAdding(true)} className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Ajouter un créateur
-            </Button>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Label htmlFor="creator-name">Nom du créateur</Label>
+              <Input
+                id="creator-name"
+                value={newCreatorName}
+                onChange={(e) => setNewCreatorName(e.target.value)}
+                placeholder="Nom du créateur"
+                onKeyPress={(e) => e.key === "Enter" && handleAddCreator()}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={handleAddCreator} disabled={!newCreatorName.trim()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter
+              </Button>
+            </div>
+          </div>
+
+          {addStatus && (
+            <Alert variant={addStatus.type === "error" ? "destructive" : "default"}>
+              {addStatus.type === "error" ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+              <AlertDescription>{addStatus.message}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
@@ -99,87 +119,100 @@ export function CreatorManagement() {
       {/* Liste des créateurs */}
       <Card>
         <CardHeader>
-          <CardTitle>Liste des Créateurs ({creators.length})</CardTitle>
-          <CardDescription>Visualisez et modifiez les créateurs existants</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Liste des créateurs
+          </CardTitle>
+          <CardDescription>Gérez vos créateurs existants</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {creators.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Aucun créateur configuré</p>
+              <p className="text-sm">Ajoutez votre premier créateur ci-dessus</p>
+            </div>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nom</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-center">Articles en stock</TableHead>
+                  <TableHead className="text-center">Ventes totales</TableHead>
+                  <TableHead className="text-right">CA total</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {creators.map((creator) => (
-                  <TableRow key={creator}>
-                    <TableCell className="font-medium">
-                      {editingCreator === creator ? (
-                        <Input
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyPress={(e) => e.key === "Enter" && handleSaveEdit(creator)}
-                          className="max-w-xs"
-                        />
-                      ) : (
-                        creator
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {editingCreator === creator ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleSaveEdit(creator)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Check className="w-4 h-4 text-green-600" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 p-0">
-                              <X className="w-4 h-4 text-red-600" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEditCreator(creator)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteCreator(creator)}
-                              className="h-8 w-8 p-0"
-                              disabled={creator === "Non identifié"}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {creators.map((creator) => {
+                  const stats = getCreatorStats(creator)
+                  return (
+                    <TableRow key={creator}>
+                      <TableCell className="font-medium">{creator}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="flex items-center gap-1 w-fit mx-auto">
+                          <Package className="h-3 w-3" />
+                          {stats.stockItems}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{stats.totalSales}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        <div className="flex items-center justify-end gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {stats.totalRevenue.toFixed(2)}€
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          onClick={() => {
+                            setCreatorToDelete(creator)
+                            setShowDeleteDialog(true)
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
-          </div>
-
-          {creators.length === 0 && (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Aucun créateur trouvé</p>
-              <p className="text-sm text-gray-400">Ajoutez des créateurs pour commencer</p>
-            </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de confirmation de suppression */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirmer la suppression
+            </DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer le créateur "{creatorToDelete}" ?
+              <br />
+              <br />
+              <strong>Attention :</strong> Cette action ne supprimera pas les données de stock et de ventes associées,
+              mais le créateur ne sera plus disponible pour de nouvelles attributions.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteCreator}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Supprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

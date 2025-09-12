@@ -4,380 +4,219 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { FileText, Download, Eye } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
+import { FileText, Download, Eye, Calendar } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { formatCurrency, parsePrice } from "@/lib/sales-utils"
 
 export function PDFGenerator() {
-  const { creators, getSalesForCreator, getStockForCreator, settings } = useStore()
-  const [selectedCreator, setSelectedCreator] = useState("")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const { creators, settings, monthlyData, currentMonth } = useStore()
+  const [selectedCreator, setSelectedCreator] = useState<string>("")
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth)
   const [generating, setGenerating] = useState(false)
 
-  const generatePDFContent = (creator: string) => {
-    const sales = getSalesForCreator(creator)
-    const stock = getStockForCreator(creator)
+  const availableMonths = Object.keys(monthlyData).sort().reverse()
 
-    // Filtrer les ventes par date si spécifié
-    const filteredSales = sales.filter((sale) => {
-      if (!startDate && !endDate) return true
-
-      try {
-        const saleDate = new Date(sale.date)
-        const start = startDate ? new Date(startDate) : new Date("1900-01-01")
-        const end = endDate ? new Date(endDate) : new Date("2100-12-31")
-
-        return saleDate >= start && saleDate <= end
-      } catch (error) {
-        return true
-      }
-    })
-
-    const totalSales = filteredSales.reduce((sum, sale) => sum + parsePrice(sale.prix), 0)
-    const totalCommission = filteredSales.reduce((sum, sale) => {
-      const price = parsePrice(sale.prix)
-      const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
-      return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
-    }, 0)
-    const netAmount = totalSales - totalCommission
-
-    const currentDate = new Date().toLocaleDateString("fr-FR")
-    const periodText = startDate && endDate ? `du ${startDate} au ${endDate}` : "Toutes les ventes"
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rapport de ventes - ${creator}</title>
-    <style>
-        @page {
-            margin: 20mm;
-            size: A4;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.4;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #2563eb;
-            padding-bottom: 20px;
-        }
-        
-        .header h1 {
-            color: #2563eb;
-            margin: 0;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        
-        .header h2 {
-            color: #64748b;
-            margin: 5px 0;
-            font-size: 20px;
-            font-weight: normal;
-        }
-        
-        .header .period {
-            color: #64748b;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-        
-        .summary-box {
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-        }
-        
-        .summary-item {
-            text-align: center;
-        }
-        
-        .summary-item .label {
-            font-size: 12px;
-            color: #64748b;
-            text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .summary-item .value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #1e293b;
-        }
-        
-        .summary-item.ca .value {
-            color: #059669;
-        }
-        
-        .summary-item.commission .value {
-            color: #dc2626;
-        }
-        
-        .summary-item.net .value {
-            color: #2563eb;
-        }
-        
-        .section {
-            margin: 30px 0;
-        }
-        
-        .section-title {
-            font-size: 18px;
-            font-weight: bold;
-            color: #1e293b;
-            margin-bottom: 15px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        
-        th {
-            background: #2563eb;
-            color: white;
-            padding: 12px 8px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
-        
-        td {
-            padding: 10px 8px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 13px;
-        }
-        
-        tr:nth-child(even) {
-            background: #f8fafc;
-        }
-        
-        .amount {
-            text-align: right;
-            font-weight: 600;
-        }
-        
-        .payment-method {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 500;
-        }
-        
-        .payment-cash {
-            background: #dcfce7;
-            color: #166534;
-        }
-        
-        .payment-card {
-            background: #dbeafe;
-            color: #1d4ed8;
-        }
-        
-        .payment-other {
-            background: #f3e8ff;
-            color: #7c3aed;
-        }
-        
-        .footer {
-            margin-top: 40px;
-            text-align: center;
-            font-size: 12px;
-            color: #64748b;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 20px;
-        }
-        
-        .no-data {
-            text-align: center;
-            color: #64748b;
-            font-style: italic;
-            padding: 20px;
-        }
-        
-        @media print {
-            .no-print {
-                display: none;
-            }
-            
-            body {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>${settings.shopName}</h1>
-        <h2>Rapport de ventes - ${creator}</h2>
-        <div class="period">${periodText} • Généré le ${currentDate}</div>
-    </div>
-    
-    <div class="summary-box">
-        <div class="summary-item ca">
-            <div class="label">Chiffre d'affaires</div>
-            <div class="value">${totalSales.toFixed(2)}€</div>
-        </div>
-        <div class="summary-item commission">
-            <div class="label">Commission (${settings.commissionRate}%)</div>
-            <div class="value">-${totalCommission.toFixed(2)}€</div>
-        </div>
-        <div class="summary-item net">
-            <div class="label">Solde à verser</div>
-            <div class="value">${netAmount.toFixed(2)}€</div>
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">📊 Détail des ventes (${filteredSales.length})</div>
-        ${
-          filteredSales.length > 0
-            ? `
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Article</th>
-                    <th>Prix</th>
-                    <th>Mode de paiement</th>
-                    <th>Commission</th>
-                    <th>Net</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filteredSales
-                  .map((sale) => {
-                    const price = parsePrice(sale.prix)
-                    const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
-                    const commission = isNotCash ? price * (settings.commissionRate / 100) : 0
-                    const net = price - commission
-
-                    const paymentClass = isNotCash
-                      ? sale.paiement?.toLowerCase().includes("carte")
-                        ? "payment-card"
-                        : "payment-other"
-                      : "payment-cash"
-
-                    return `
-                    <tr>
-                        <td>${sale.date}</td>
-                        <td>${sale.description}</td>
-                        <td class="amount">${price.toFixed(2)}€</td>
-                        <td><span class="payment-method ${paymentClass}">${sale.paiement}</span></td>
-                        <td class="amount">${commission > 0 ? commission.toFixed(2) + "€" : "-"}</td>
-                        <td class="amount">${net.toFixed(2)}€</td>
-                    </tr>
-                    `
-                  })
-                  .join("")}
-            </tbody>
-        </table>
-        `
-            : '<div class="no-data">Aucune vente pour cette période</div>'
-        }
-    </div>
-    
-    <div class="footer">
-        <p>Rapport généré automatiquement par ${settings.shopName}</p>
-        <p>Commission de ${settings.commissionRate}% appliquée sur tous les paiements sauf espèces</p>
-    </div>
-</body>
-</html>
-    `
-  }
-
-  const generatePDF = async () => {
-    if (!selectedCreator) return
+  const generateReport = (format: "pdf" | "html") => {
+    if (!selectedCreator || !selectedMonth) return
 
     setGenerating(true)
 
     try {
-      const htmlContent = generatePDFContent(selectedCreator)
+      const monthData = monthlyData[selectedMonth]
+      if (!monthData) {
+        alert("Aucune donnée pour ce mois")
+        return
+      }
 
-      // Créer et télécharger le fichier HTML
-      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `rapport_${selectedCreator}_${new Date().toISOString().split("T")[0]}.html`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      const creatorSales = monthData.salesData.filter(
+        (sale) => sale.createur === selectedCreator && sale.statut !== "payee",
+      )
 
-      // Ouvrir dans une nouvelle fenêtre pour impression
-      const printWindow = window.open("", "_blank")
-      if (printWindow) {
-        printWindow.document.write(htmlContent)
-        printWindow.document.close()
+      if (creatorSales.length === 0) {
+        alert("Aucune vente pour ce créateur ce mois-ci")
+        return
+      }
+
+      // Calculs
+      const totalSales = creatorSales.length
+      const totalRevenue = creatorSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+      const totalCommission = creatorSales.reduce((sum, sale) => {
+        const price = Number.parseFloat(sale.prix || "0")
+        const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+        return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
+      }, 0)
+      const netAmount = totalRevenue - totalCommission
+
+      // Générer le contenu HTML
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="fr">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Rapport de ventes - ${selectedCreator}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+            .shop-name { font-size: 24px; font-weight: bold; color: #2563eb; }
+            .report-title { font-size: 20px; margin: 10px 0; }
+            .period { color: #666; }
+            .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+            .summary-card { background: #f8fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #2563eb; }
+            .summary-label { font-size: 14px; color: #666; margin-bottom: 5px; }
+            .summary-value { font-size: 24px; font-weight: bold; }
+            .positive { color: #16a34a; }
+            .negative { color: #dc2626; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+            th { background: #f8fafc; font-weight: bold; }
+            .amount { text-align: right; font-weight: bold; }
+            .commission { color: #dc2626; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="shop-name">${settings.shopName}</div>
+            <div class="report-title">Rapport de ventes</div>
+            <div class="period">
+              ${selectedCreator} - ${new Date(selectedMonth + "-01").toLocaleDateString("fr-FR", { year: "numeric", month: "long" })}
+            </div>
+          </div>
+
+          <div class="summary">
+            <div class="summary-card">
+              <div class="summary-label">Nombre de ventes</div>
+              <div class="summary-value">${totalSales}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Chiffre d'affaires brut</div>
+              <div class="summary-value positive">${totalRevenue.toFixed(2)}€</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Commission (${settings.commissionRate}%)</div>
+              <div class="summary-value negative">-${totalCommission.toFixed(2)}€</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">Net à verser</div>
+              <div class="summary-value positive">${netAmount.toFixed(2)}€</div>
+            </div>
+          </div>
+
+          <h3>Détail des ventes</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Paiement</th>
+                <th class="amount">Prix</th>
+                <th class="amount">Commission</th>
+                <th class="amount">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${creatorSales
+                .map((sale) => {
+                  const price = Number.parseFloat(sale.prix || "0")
+                  const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+                  const commission = isNotCash ? price * (settings.commissionRate / 100) : 0
+                  const net = price - commission
+
+                  return `
+                    <tr>
+                      <td>${new Date(sale.date).toLocaleDateString("fr-FR")}</td>
+                      <td>${sale.description}</td>
+                      <td>${sale.paiement}</td>
+                      <td class="amount">${price.toFixed(2)}€</td>
+                      <td class="amount commission">${commission > 0 ? "-" + commission.toFixed(2) + "€" : "0€"}</td>
+                      <td class="amount">${net.toFixed(2)}€</td>
+                    </tr>
+                  `
+                })
+                .join("")}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>Rapport généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}</p>
+            <p>${settings.shopName} - Gestion Multi-Créateurs</p>
+          </div>
+        </body>
+        </html>
+      `
+
+      if (format === "html") {
+        // Ouvrir dans une nouvelle fenêtre pour prévisualisation
+        const newWindow = window.open("", "_blank")
+        if (newWindow) {
+          newWindow.document.write(htmlContent)
+          newWindow.document.close()
+        }
+      } else {
+        // Pour PDF, on utilise la fonction d'impression du navigateur
+        const newWindow = window.open("", "_blank")
+        if (newWindow) {
+          newWindow.document.write(htmlContent)
+          newWindow.document.close()
+          newWindow.print()
+        }
       }
     } catch (error) {
-      console.error("Erreur lors de la génération du PDF:", error)
+      console.error("Erreur lors de la génération:", error)
+      alert("Erreur lors de la génération du rapport")
     } finally {
       setGenerating(false)
     }
   }
 
-  const previewPDF = () => {
-    if (!selectedCreator) return
+  // Calculer les statistiques pour l'aperçu
+  const getPreviewStats = () => {
+    if (!selectedCreator || !selectedMonth) return null
 
-    const htmlContent = generatePDFContent(selectedCreator)
-    const previewWindow = window.open("", "_blank", "width=800,height=600")
-    if (previewWindow) {
-      previewWindow.document.write(htmlContent)
-      previewWindow.document.close()
+    const monthData = monthlyData[selectedMonth]
+    if (!monthData) return null
+
+    const creatorSales = monthData.salesData.filter(
+      (sale) => sale.createur === selectedCreator && sale.statut !== "payee",
+    )
+
+    const totalRevenue = creatorSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+    const totalCommission = creatorSales.reduce((sum, sale) => {
+      const price = Number.parseFloat(sale.prix || "0")
+      const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+      return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
+    }, 0)
+
+    return {
+      salesCount: creatorSales.length,
+      totalRevenue,
+      totalCommission,
+      netAmount: totalRevenue - totalCommission,
     }
   }
 
+  const previewStats = getPreviewStats()
+
   return (
     <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Génération de Rapports</h2>
-          <p className="text-gray-600">Générez des rapports détaillés pour chaque créateur</p>
-        </div>
+      <div>
+        <h2 className="text-2xl font-bold">Génération de rapports</h2>
+        <p className="text-muted-foreground">Créez des rapports PDF ou HTML pour vos créateurs</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Génération de rapports PDF
+            Paramètres du rapport
           </CardTitle>
-          <CardDescription>Générez des rapports détaillés et professionnels pour chaque créateur</CardDescription>
+          <CardDescription>Sélectionnez le créateur et la période pour générer le rapport</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Créateur</Label>
               <Select value={selectedCreator} onValueChange={setSelectedCreator}>
@@ -395,81 +234,83 @@ export function PDFGenerator() {
             </div>
 
             <div className="space-y-2">
-              <Label>Date de début (optionnel)</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Date de fin (optionnel)</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Label>Période</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableMonths.map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {new Date(month + "-01").toLocaleDateString("fr-FR", { year: "numeric", month: "long" })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="flex gap-2">
+          {previewStats && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  Aperçu du rapport
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-muted p-3 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Ventes</div>
+                    <div className="text-xl font-bold">{previewStats.salesCount}</div>
+                  </div>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <div className="text-sm text-muted-foreground">CA Brut</div>
+                    <div className="text-xl font-bold text-green-600">{previewStats.totalRevenue.toFixed(2)}€</div>
+                  </div>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Commission</div>
+                    <div className="text-xl font-bold text-red-600">-{previewStats.totalCommission.toFixed(2)}€</div>
+                  </div>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Net</div>
+                    <div className="text-xl font-bold text-blue-600">{previewStats.netAmount.toFixed(2)}€</div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <Separator />
+
+          <div className="flex gap-3">
             <Button
-              onClick={previewPDF}
-              disabled={!selectedCreator}
+              onClick={() => generateReport("html")}
+              disabled={!selectedCreator || !selectedMonth || generating}
               variant="outline"
-              className="flex-1 bg-transparent"
             >
               <Eye className="h-4 w-4 mr-2" />
-              Aperçu
+              Aperçu HTML
             </Button>
-            <Button onClick={generatePDF} disabled={!selectedCreator || generating} className="flex-1">
+            <Button onClick={() => generateReport("pdf")} disabled={!selectedCreator || !selectedMonth || generating}>
               <Download className="h-4 w-4 mr-2" />
               {generating ? "Génération..." : "Générer PDF"}
             </Button>
           </div>
+
+          {!selectedCreator && (
+            <Alert>
+              <Calendar className="h-4 w-4" />
+              <AlertDescription>Veuillez sélectionner un créateur pour générer le rapport.</AlertDescription>
+            </Alert>
+          )}
+
+          {selectedCreator && previewStats?.salesCount === 0 && (
+            <Alert>
+              <AlertDescription>Aucune vente trouvée pour ce créateur sur cette période.</AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
-
-      {/* Aperçu des créateurs */}
-      {creators.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Aperçu des créateurs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {creators.map((creator) => {
-                const sales = getSalesForCreator(creator)
-                const totalSales = sales.reduce((sum, sale) => sum + parsePrice(sale.prix), 0)
-                const totalCommission = sales.reduce((sum, sale) => {
-                  const price = parsePrice(sale.prix)
-                  const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
-                  return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
-                }, 0)
-
-                return (
-                  <div key={creator} className="p-4 border rounded-lg">
-                    <h4 className="font-medium mb-2">{creator}</h4>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <p>{sales.length} ventes</p>
-                      <p>CA: {formatCurrency(totalSales)}</p>
-                      <p>Commission: {formatCurrency(totalCommission)}</p>
-                      <p className="font-medium text-green-600">
-                        À verser: {formatCurrency(totalSales - totalCommission)}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full mt-2 bg-transparent"
-                      onClick={() => {
-                        setSelectedCreator(creator)
-                        previewPDF()
-                      }}
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      Aperçu
-                    </Button>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

@@ -1,219 +1,234 @@
 "use client"
 
-import { useMemo } from "react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-} from "recharts"
-import { BarChart3, TrendingUp, Euro, Calendar } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { TrendingUp, TrendingDown, DollarSign, Package, Users, Calendar, Download } from "lucide-react"
 import { useStore } from "@/lib/store"
+import { useState } from "react"
 
-export default function SalesAnalytics() {
-  const { sales, creators } = useStore()
+export function SalesAnalytics() {
+  const { creators, getSalesForCreator, getAllSalesForCreator, settings, currentMonth, monthlyData } = useStore()
+  const [selectedCreator, setSelectedCreator] = useState<string>("all")
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth)
 
-  const analyticsData = useMemo(() => {
-    // Données par créateur
-    const creatorData = creators
-      .map((creator) => {
-        const creatorSales = sales.filter((sale) => sale.creatorId === creator.id && sale.identified)
-        const totalRevenue = creatorSales.reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
-        const totalItems = creatorSales.reduce((sum, sale) => sum + sale.quantity, 0)
+  // Obtenir tous les mois disponibles
+  const availableMonths = Object.keys(monthlyData).sort().reverse()
 
-        return {
-          name: creator.name,
-          revenue: totalRevenue,
-          items: totalItems,
-          sales: creatorSales.length,
-          color: creator.color,
+  // Calculer les statistiques pour le mois sélectionné
+  const getMonthStats = (month: string) => {
+    const monthData = monthlyData[month]
+    if (!monthData) return { totalSales: 0, totalRevenue: 0, totalCommission: 0, salesByCreator: {} }
+
+    const sales = monthData.salesData.filter((sale) => sale.statut !== "payee")
+    const totalSales = sales.length
+    const totalRevenue = sales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+    const totalCommission = sales.reduce((sum, sale) => {
+      const price = Number.parseFloat(sale.prix || "0")
+      const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+      return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
+    }, 0)
+
+    const salesByCreator = creators.reduce(
+      (acc, creator) => {
+        const creatorSales = sales.filter((sale) => sale.createur === creator)
+        const revenue = creatorSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+        const commission = creatorSales.reduce((sum, sale) => {
+          const price = Number.parseFloat(sale.prix || "0")
+          const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+          return sum + (isNotCash ? price * (settings.commissionRate / 100) : 0)
+        }, 0)
+
+        acc[creator] = {
+          count: creatorSales.length,
+          revenue,
+          commission,
+          net: revenue - commission,
         }
-      })
-      .filter((data) => data.revenue > 0)
-
-    // Données par mois
-    const monthlyData = sales.reduce(
-      (acc, sale) => {
-        if (!sale.identified) return acc
-
-        const month = sale.date.substring(0, 7) // YYYY-MM
-        if (!acc[month]) {
-          acc[month] = { month, revenue: 0, sales: 0 }
-        }
-        acc[month].revenue += sale.price * sale.quantity
-        acc[month].sales += 1
         return acc
       },
-      {} as Record<string, { month: string; revenue: number; sales: number }>,
+      {} as Record<string, { count: number; revenue: number; commission: number; net: number }>,
     )
 
-    const monthlyArray = Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month))
+    return { totalSales, totalRevenue, totalCommission, salesByCreator }
+  }
 
-    // Top articles
-    const itemData = sales.reduce(
-      (acc, sale) => {
-        if (!sale.identified) return acc
+  const stats = getMonthStats(selectedMonth)
 
-        const key = `${sale.itemName} (${sale.creatorName})`
-        if (!acc[key]) {
-          acc[key] = { name: key, quantity: 0, revenue: 0 }
-        }
-        acc[key].quantity += sale.quantity
-        acc[key].revenue += sale.price * sale.quantity
-        return acc
-      },
-      {} as Record<string, { name: string; quantity: number; revenue: number }>,
-    )
+  const exportData = () => {
+    const monthData = monthlyData[selectedMonth]
+    if (!monthData) return
 
-    const topItems = Object.values(itemData)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10)
+    const sales = monthData.salesData
+    const csvContent = [
+      "Date,Créateur,Description,Prix,Paiement,Commission,Net",
+      ...sales.map((sale) => {
+        const price = Number.parseFloat(sale.prix || "0")
+        const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+        const commission = isNotCash ? price * (settings.commissionRate / 100) : 0
+        const net = price - commission
 
-    return { creatorData, monthlyArray, topItems }
-  }, [sales, creators])
+        return [
+          sale.date,
+          sale.createur,
+          `"${sale.description}"`,
+          sale.prix,
+          sale.paiement,
+          commission.toFixed(2),
+          net.toFixed(2),
+        ].join(",")
+      }),
+    ].join("\n")
 
-  const totalRevenue = sales.filter((s) => s.identified).reduce((sum, sale) => sum + sale.price * sale.quantity, 0)
-  const totalSales = sales.filter((s) => s.identified).length
-  const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `ventes-${selectedMonth}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-          <BarChart3 className="w-7 h-7 text-blue-600" />
-          Analyses des Ventes
-        </h2>
-
-        {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="flex items-center gap-2">
-              <Euro className="w-5 h-5 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">CA Total</span>
-            </div>
-            <p className="text-2xl font-bold text-blue-900">{totalRevenue.toFixed(2)}€</p>
-          </div>
-
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-              <span className="text-sm font-medium text-green-800">Ventes</span>
-            </div>
-            <p className="text-2xl font-bold text-green-900">{totalSales}</p>
-          </div>
-
-          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-purple-600" />
-              <span className="text-sm font-medium text-purple-800">Panier moyen</span>
-            </div>
-            <p className="text-2xl font-bold text-purple-900">{averageOrderValue.toFixed(2)}€</p>
-          </div>
-
-          <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-orange-600" />
-              <span className="text-sm font-medium text-orange-800">Créateurs actifs</span>
-            </div>
-            <p className="text-2xl font-bold text-orange-900">{analyticsData.creatorData.length}</p>
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Analyse des ventes</h2>
+          <p className="text-muted-foreground">Statistiques et performance par créateur</p>
         </div>
-      </div>
-
-      {/* Graphiques */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenus par créateur */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenus par Créateur</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={analyticsData.creatorData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-              <YAxis />
-              <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}€`, "Revenus"]} />
-              <Bar dataKey="revenue" fill="#3B82F6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Répartition des ventes */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition des Ventes</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={analyticsData.creatorData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="revenue"
-              >
-                {analyticsData.creatorData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}€`, "Revenus"]} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Évolution mensuelle */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 lg:col-span-2">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution Mensuelle</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analyticsData.monthlyArray}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip
-                formatter={(value, name) => [
-                  name === "revenue" ? `${Number(value).toFixed(2)}€` : value,
-                  name === "revenue" ? "Revenus" : "Ventes",
-                ]}
-              />
-              <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} />
-              <Line type="monotone" dataKey="sales" stroke="#10B981" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Top articles */}
-      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Articles</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left p-3 font-semibold text-gray-900">Article</th>
-                <th className="text-left p-3 font-semibold text-gray-900">Quantité vendue</th>
-                <th className="text-left p-3 font-semibold text-gray-900">Revenus</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analyticsData.topItems.map((item, index) => (
-                <tr key={index} className="border-b border-gray-100">
-                  <td className="p-3">{item.name}</td>
-                  <td className="p-3 font-medium">{item.quantity}</td>
-                  <td className="p-3 font-bold">{item.revenue.toFixed(2)}€</td>
-                </tr>
+        <div className="flex gap-2">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availableMonths.map((month) => (
+                <SelectItem key={month} value={month}>
+                  {new Date(month + "-01").toLocaleDateString("fr-FR", { year: "numeric", month: "long" })}
+                </SelectItem>
               ))}
-            </tbody>
-          </table>
+            </SelectContent>
+          </Select>
+          <Button onClick={exportData} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
       </div>
+
+      {/* Statistiques globales */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ventes totales</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalSales}</div>
+            <p className="text-xs text-muted-foreground">ventes ce mois</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Chiffre d'affaires</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalRevenue.toFixed(2)}€</div>
+            <p className="text-xs text-muted-foreground">revenus bruts</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Commissions</CardTitle>
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">-{stats.totalCommission.toFixed(2)}€</div>
+            <p className="text-xs text-muted-foreground">{settings.commissionRate}% sur non-espèces</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net à verser</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {(stats.totalRevenue - stats.totalCommission).toFixed(2)}€
+            </div>
+            <p className="text-xs text-muted-foreground">après commissions</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Performance par créateur */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Performance par créateur -{" "}
+            {new Date(selectedMonth + "-01").toLocaleDateString("fr-FR", { year: "numeric", month: "long" })}
+          </CardTitle>
+          <CardDescription>Détail des ventes et commissions par créateur</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Créateur</TableHead>
+                <TableHead className="text-right">Ventes</TableHead>
+                <TableHead className="text-right">CA Brut</TableHead>
+                <TableHead className="text-right">Commission</TableHead>
+                <TableHead className="text-right">Net à verser</TableHead>
+                <TableHead className="text-right">% du total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {creators
+                .filter((creator) => stats.salesByCreator[creator]?.count > 0)
+                .sort((a, b) => stats.salesByCreator[b].revenue - stats.salesByCreator[a].revenue)
+                .map((creator) => {
+                  const creatorStats = stats.salesByCreator[creator]
+                  const percentage = stats.totalRevenue > 0 ? (creatorStats.revenue / stats.totalRevenue) * 100 : 0
+
+                  return (
+                    <TableRow key={creator}>
+                      <TableCell className="font-medium">{creator}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline">{creatorStats.count}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{creatorStats.revenue.toFixed(2)}€</TableCell>
+                      <TableCell className="text-right text-red-600">-{creatorStats.commission.toFixed(2)}€</TableCell>
+                      <TableCell className="text-right font-bold text-green-600">
+                        {creatorStats.net.toFixed(2)}€
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={percentage > 20 ? "default" : "secondary"}>{percentage.toFixed(1)}%</Badge>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+            </TableBody>
+          </Table>
+
+          {Object.keys(stats.salesByCreator).filter((creator) => stats.salesByCreator[creator]?.count > 0).length ===
+            0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Aucune vente pour ce mois</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,307 +1,218 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
-import { useStore } from "@/lib/store"
+
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, AlertCircle, CheckCircle, Eye } from "lucide-react"
-import Papa from "papaparse"
-import * as XLSX from "xlsx"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Users, Package } from "lucide-react"
+import { useStore } from "@/lib/store"
+import { SalesImport } from "./sales-import"
 
-interface ImportFilesProps {
-  type: "stock" | "sales"
-}
+export function ImportFiles() {
+  const [stockFile, setStockFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
-export function ImportFiles({ type }: ImportFilesProps) {
-  const { getCurrentData, setStock, setSales, addCreator, creators, setStockData, setSalesData, settings } = useStore()
+  const { importStockData, stockData, creators } = useStore()
 
-  const currentData = getCurrentData()
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("")
-  const [showPreview, setShowPreview] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const parseCSV = (text: string): any[] => {
+    const lines = text.split("\n")
+    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
 
-  const parseFile = (file: File): Promise<any[]> => {
-    return new Promise((resolve, reject) => {
-      const extension = file.name.split(".").pop()?.toLowerCase()
+    console.log("Headers du fichier de stock:", headers)
+    console.log("Nombre de colonnes:", headers.length)
 
-      if (extension === "csv") {
-        Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            if (results.errors.length > 0) {
-              reject(new Error("Erreur lors de la lecture du CSV"))
-            } else {
-              resolve(results.data as any[])
-            }
-          },
-          error: (error) => reject(error),
-        })
-      } else if (extension === "xlsx" || extension === "xls") {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          try {
-            const data = new Uint8Array(e.target?.result as ArrayBuffer)
-            const workbook = XLSX.read(data, { type: "array" })
-            const sheetName = workbook.SheetNames[0]
-            const worksheet = workbook.Sheets[sheetName]
-            const jsonData = XLSX.utils.sheet_to_json(worksheet)
-            resolve(jsonData)
-          } catch (error) {
-            reject(error)
+    return lines
+      .slice(1)
+      .map((line) => {
+        // Parsing CSV amélioré pour gérer les virgules dans les valeurs entre guillemets
+        const values: string[] = []
+        let current = ""
+        let inQuotes = false
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === "," && !inQuotes) {
+            values.push(current.trim())
+            current = ""
+          } else {
+            current += char
           }
         }
-        reader.readAsArrayBuffer(file)
-      } else {
-        reject(new Error("Format de fichier non supporté"))
-      }
-    })
+        values.push(current.trim()) // Ajouter la dernière valeur
+
+        const obj: any = {}
+        headers.forEach((header, index) => {
+          obj[header] = values[index] || ""
+        })
+        return obj
+      })
+      .filter((row) => Object.values(row).some((val) => val !== ""))
   }
 
-  const identifyCreatorFromDescription = (description: string): string => {
-    const desc = description.toLowerCase()
-    const words = desc.split(" ").slice(0, 4)
+  const handleStockFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setStockFile(file)
+    }
+  }
 
-    for (const creator of creators) {
-      if (creator === "Non identifié") continue
+  const handleStockImport = async () => {
+    if (!stockFile) {
+      setImportStatus({ type: "error", message: "Veuillez sélectionner le fichier de stock" })
+      return
+    }
 
-      const creatorName = creator.toLowerCase()
-      const creatorWords = creatorName.split(" ")
+    setImporting(true)
+    setImportStatus(null)
 
-      if (words.join(" ").includes(creatorName)) {
-        return creator
-      }
+    try {
+      const stockText = await stockFile.text()
+      const stockData = parseCSV(stockText)
 
-      const matchedWords = creatorWords.filter((word) =>
-        words.some((descWord) => descWord.includes(word) || word.includes(descWord)),
-      )
+      console.log("Données stock brutes:", stockData.slice(0, 3))
 
-      if (matchedWords.length === creatorWords.length) {
-        return creator
-      }
+      // Traitement spécifique pour le format SumUp
+      const processedData: any[] = []
+      let currentCreator = ""
 
-      if (creatorWords.length > 1) {
-        const initials = creatorWords.map((word) => word[0]).join("")
-        if (words.some((word) => word.includes(initials))) {
-          return creator
+      stockData.forEach((row, index) => {
+        const itemName = row["Item name"] || ""
+        const variations = row["Variations"] || ""
+        const price = row["Price"] || "0"
+        const quantity = row["Quantity"] || "0"
+        const sku = row["SKU"] || ""
+        const category = row["Category"] || ""
+        const lowStockThreshold = row["Low stock threshold"] || "0"
+        const image = row["Image 1"] || ""
+
+        console.log(`Ligne ${index}: ItemName="${itemName}", Variations="${variations}"`)
+
+        // Si on a un Item name mais pas de Variations, c'est un créateur
+        if (itemName.trim() && !variations.trim()) {
+          currentCreator = itemName.trim()
+          console.log(`Nouveau créateur détecté: ${currentCreator}`)
+          return
         }
-      }
-    }
 
-    return "Non identifié"
-  }
+        // Si on a des Variations et un créateur actuel, c'est un article
+        if (variations.trim() && currentCreator) {
+          const stockItem = {
+            createur: currentCreator,
+            article: variations.trim(),
+            price: price,
+            quantity: quantity,
+            category: category,
+            sku: sku,
+            lowStockThreshold: lowStockThreshold,
+            image: image,
+          }
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+          console.log(`Article ajouté:`, stockItem)
+          processedData.push(stockItem)
+        }
+      })
 
-    setFile(file)
-    setLoading(true)
-    setMessage("")
+      console.log("Articles traités:", processedData.length)
+      console.log("Échantillon:", processedData.slice(0, 3))
 
-    try {
-      const data = await parseFile(file)
-      if (data.length === 0) {
-        throw new Error("Le fichier est vide")
-      }
+      importStockData(processedData)
 
-      setPreview(data.slice(0, 5))
-      setMessage(`✅ Fichier analysé: ${data.length} lignes détectées`)
-    } catch (error) {
-      setMessage(`❌ Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleImport = async () => {
-    if (!file) return
-
-    setLoading(true)
-    try {
-      const data = await parseFile(file)
-
-      if (type === "stock") {
-        const processedStock = data
-          .map((row, index) => {
-            const creatorName = row[settings.stockTemplate.creatorColumn] || ""
-            const articleName = row[settings.stockTemplate.articleColumn] || ""
-
-            if (creatorName && !creators.includes(creatorName)) {
-              addCreator(creatorName)
-            }
-
-            return {
-              id: `stock_${index}_${Date.now()}`,
-              article: articleName,
-              price: row[settings.stockTemplate.priceColumn] || "0",
-              quantity: row[settings.stockTemplate.quantityColumn] || "0",
-              sku: row[settings.stockTemplate.skuColumn] || "",
-              createur: creatorName || "Non identifié",
-              lowStockThreshold: "5",
-            }
-          })
-          .filter((item) => item.article && item.createur)
-
-        setStockData(processedStock)
-        setMessage(`✅ ${processedStock.length} articles importés`)
-      } else {
-        const processedSales = data
-          .map((row, index) => {
-            const description = row[settings.salesTemplate.descriptionColumn] || ""
-            const identifiedCreator = identifyCreatorFromDescription(description)
-
-            if (identifiedCreator === "Non identifié" && !creators.includes("Non identifié")) {
-              addCreator("Non identifié")
-            }
-
-            return {
-              id: `sale_${index}_${Date.now()}`,
-              date: row[settings.salesTemplate.dateColumn] || new Date().toISOString().split("T")[0],
-              description: description,
-              prix: row[settings.salesTemplate.priceColumn] || "0",
-              paiement: row[settings.salesTemplate.paymentColumn] || "Carte",
-              createur: identifiedCreator,
-              identified: identifiedCreator !== "Non identifié",
-            }
-          })
-          .filter((sale) => sale.description)
-
-        setSalesData(processedSales)
-        setMessage(`✅ ${processedSales.length} ventes importées`)
-      }
+      setImportStatus({
+        type: "success",
+        message: `✅ ${processedData.length} articles importés avec succès !`,
+      })
 
       // Reset
-      setFile(null)
-      setPreview([])
-      if (fileInputRef.current) fileInputRef.current.value = ""
+      setStockFile(null)
     } catch (error) {
-      setMessage(`❌ Erreur lors de l'import: ${error instanceof Error ? error.message : "Erreur inconnue"}`)
+      console.error("Erreur lors de l'import:", error)
+      setImportStatus({
+        type: "error",
+        message: "Erreur lors de l'analyse du fichier de stock",
+      })
     } finally {
-      setLoading(false)
+      setImporting(false)
     }
-  }
-
-  const downloadTemplate = () => {
-    const template = type === "stock" ? settings.stockTemplate : settings.salesTemplate
-    const headers = Object.values(template)
-    const sampleData = [
-      headers.reduce(
-        (acc, header) => {
-          acc[header] = `Exemple ${header}`
-          return acc
-        },
-        {} as Record<string, string>,
-      ),
-    ]
-
-    const csvContent = [
-      headers.join(","),
-      ...sampleData.map((row) => headers.map((header) => `"${row[header]}"`).join(",")),
-    ].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `${type}-template.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Import {type === "stock" ? "du Stock" : "des Ventes"}</CardTitle>
-          <CardDescription>
-            Importez un fichier CSV ou Excel contenant les informations de {type === "stock" ? "stock" : "ventes"}.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Fichier CSV/Excel</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                onChange={handleFileChange}
-                className="hidden"
-                id={`${type}-file`}
-              />
-              <label htmlFor={`${type}-file`} className="cursor-pointer">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">{file ? file.name : "Cliquez pour sélectionner"}</p>
-              </label>
-            </div>
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Import des fichiers</h2>
+          <p className="text-muted-foreground">Importez vos données de stock et de ventes</p>
+        </div>
+        <div className="flex gap-4">
+          <Badge variant="outline" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            {creators.length} créateurs
+          </Badge>
+          <Badge variant="outline" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            {stockData.length} articles
+          </Badge>
+        </div>
+      </div>
 
-          {preview.length > 0 && (
-            <div className="space-y-2">
-              <Button
-                onClick={() => setShowPreview(!showPreview)}
-                variant="outline"
-                size="sm"
-                className="bg-transparent"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                {showPreview ? "Masquer" : "Voir"} aperçu
+      <Tabs defaultValue="stock" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="stock">Import Stock</TabsTrigger>
+          <TabsTrigger value="sales">Import Ventes</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="stock">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Import du stock
+              </CardTitle>
+              <CardDescription>
+                Importez le fichier CSV d'export SumUp. Les créateurs seront détectés automatiquement à partir des "Item
+                name" et les articles à partir des "Variations".
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="stock-file">Fichier de stock (CSV)</Label>
+                <div className="flex items-center gap-2">
+                  <Input id="stock-file" type="file" accept=".csv" onChange={handleStockFileChange} />
+                  {stockFile && <CheckCircle className="h-4 w-4 text-green-500" />}
+                </div>
+              </div>
+
+              <Button onClick={handleStockImport} disabled={!stockFile || importing} className="w-full">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                {importing ? "Import en cours..." : "Importer le stock"}
               </Button>
 
-              {showPreview && (
-                <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-auto">
-                  <div className="text-xs space-y-1">
-                    {preview.map((row, index) => (
-                      <div key={index} className="border-b border-gray-200 pb-1">
-                        {type === "stock" ? (
-                          <strong>{row[settings.stockTemplate.articleColumn] || "N/A"}</strong>
-                        ) : (
-                          <strong>{row[settings.salesTemplate.descriptionColumn] || "N/A"}</strong>
-                        )}
-                        {" - "}
-                        {type === "stock"
-                          ? `${row[settings.stockTemplate.priceColumn] || "0"}€`
-                          : `${row[settings.salesTemplate.priceColumn] || "0"}€`}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {importStatus && (
+                <Alert variant={importStatus.type === "error" ? "destructive" : "default"}>
+                  {importStatus.type === "error" ? (
+                    <AlertCircle className="h-4 w-4" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4" />
+                  )}
+                  <AlertDescription>{importStatus.message}</AlertDescription>
+                </Alert>
               )}
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="flex justify-between">
-            <Button onClick={downloadTemplate} variant="link" className="bg-transparent">
-              Télécharger le template
-            </Button>
-            <Button onClick={handleImport} disabled={!file || loading}>
-              {loading ? "Import en cours..." : "Importer"}
-            </Button>
-          </div>
-
-          {message && (
-            <Alert className={message.includes("✅") ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
-              {message.includes("✅") ? (
-                <CheckCircle className="w-4 h-4 text-green-600" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-red-600" />
-              )}
-              <AlertDescription className={message.includes("✅") ? "text-green-800" : "text-red-800"}>
-                {message}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="sales">
+          <SalesImport />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
