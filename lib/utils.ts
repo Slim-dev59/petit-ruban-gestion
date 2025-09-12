@@ -57,6 +57,8 @@ export function identifyCreatorFromStock(
 }
 
 export function exportToCSV(data: any[], filename: string) {
+  if (!data || data.length === 0) return
+
   const csvContent = [
     Object.keys(data[0]).join(","),
     ...data.map((row) =>
