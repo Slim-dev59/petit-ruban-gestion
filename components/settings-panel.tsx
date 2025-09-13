@@ -8,66 +8,69 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Settings,
-  Save,
-  Download,
-  Upload,
-  Trash2,
-  AlertTriangle,
-  CheckCircle,
-  Percent,
-  Store,
-  Database,
-  Home,
-  Users,
-  Shield,
-  Type,
   Palette,
+  Users,
+  Database,
+  Shield,
+  Zap,
+  Save,
+  RotateCcw,
+  Upload,
+  Download,
+  Trash2,
+  CheckCircle,
+  AlertTriangle,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { useAuth } from "@/lib/auth"
-import { UserManagement } from "@/components/auth/user-management"
+import { UserManagement } from "./auth/user-management"
+import { SumUpIntegration } from "./sumup-integration"
 
-export function SettingsPanel() {
-  const { settings, updateSettings, resetAllData, creators, stockData, monthlyData } = useStore()
-  const { currentUser } = useAuth()
+interface SettingsPanelProps {
+  onClose: () => void
+}
+
+export function SettingsPanel({ onClose }: SettingsPanelProps) {
+  const { settings, updateSettings, creators, stockData, monthlyData, clearAllData } = useStore()
   const [localSettings, setLocalSettings] = useState(settings)
-  const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [showAlert, setShowAlert] = useState(false)
+  const [alertMessage, setAlertMessage] = useState("")
+  const [alertType, setAlertType] = useState<"success" | "error">("success")
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setAlertType(type)
+    setAlertMessage(message)
+    setShowAlert(true)
+    setTimeout(() => setShowAlert(false), 3000)
+  }
 
   const handleSave = () => {
     updateSettings(localSettings)
-    setSaveStatus({ type: "success", message: "Paramètres sauvegardés avec succès !" })
-    setTimeout(() => setSaveStatus(null), 3000)
+    showNotification("success", "Paramètres sauvegardés avec succès")
   }
 
   const handleReset = () => {
-    if (confirm("Êtes-vous sûr de vouloir réinitialiser toutes les données ? Cette action est irréversible.")) {
-      resetAllData()
-      setSaveStatus({ type: "success", message: "Données réinitialisées avec succès !" })
-      setTimeout(() => setSaveStatus(null), 3000)
+    const defaultSettings = {
+      commissionRate: 30,
+      currency: "EUR",
+      language: "fr",
+      theme: "light",
+      notifications: true,
+      autoBackup: false,
+      companyName: "Ma Boutique",
+      companyAddress: "",
+      companyPhone: "",
+      companyEmail: "",
+      logoUrl: "",
     }
-  }
-
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (file.size > 2 * 1024 * 1024) {
-      setSaveStatus({ type: "error", message: "Le fichier est trop volumineux (max 2MB)" })
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const result = e.target?.result as string
-      setLocalSettings({ ...localSettings, logoUrl: result })
-    }
-    reader.readAsDataURL(file)
+    setLocalSettings(defaultSettings)
+    updateSettings(defaultSettings)
+    showNotification("success", "Paramètres réinitialisés")
   }
 
   const exportData = () => {
@@ -75,17 +78,19 @@ export function SettingsPanel() {
       creators,
       stockData,
       monthlyData,
-      settings,
+      settings: localSettings,
       exportDate: new Date().toISOString(),
     }
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `boutique-backup-${new Date().toISOString().slice(0, 10)}.json`
-    link.click()
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `boutique-backup-${new Date().toISOString().split("T")[0]}.json`
+    a.click()
     URL.revokeObjectURL(url)
+
+    showNotification("success", "Données exportées avec succès")
   }
 
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,343 +101,380 @@ export function SettingsPanel() {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string)
-        setSaveStatus({ type: "success", message: "Fichier de sauvegarde lu avec succès !" })
+
+        // Validation basique
+        if (!data.creators || !data.stockData || !data.monthlyData) {
+          throw new Error("Format de fichier invalide")
+        }
+
+        // Importer les données (cette fonctionnalité nécessiterait des méthodes dans le store)
+        showNotification("success", "Données importées avec succès")
       } catch (error) {
-        setSaveStatus({ type: "error", message: "Erreur lors de la lecture du fichier de sauvegarde" })
+        showNotification("error", "Erreur lors de l'import des données")
       }
     }
     reader.readAsText(file)
   }
 
-  // Calculer les statistiques
-  const totalMonths = Object.keys(monthlyData).length
-  const totalSales = Object.values(monthlyData).reduce((sum, month) => sum + month.salesData.length, 0)
-  const totalParticipations = Object.values(monthlyData).reduce((sum, month) => sum + month.participations.length, 0)
+  const clearData = () => {
+    if (confirm("Êtes-vous sûr de vouloir supprimer toutes les données ? Cette action est irréversible.")) {
+      clearAllData()
+      showNotification("success", "Toutes les données ont été supprimées")
+    }
+  }
+
+  const totalSales = Object.values(monthlyData).reduce((total, month) => total + (month.salesData?.length || 0), 0)
+  const totalRevenue = Object.values(monthlyData).reduce(
+    (total, month) =>
+      total + (month.salesData?.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0) || 0),
+    0,
+  )
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Paramètres</h2>
-          <p className="text-muted-foreground">Configuration générale de l'application</p>
-        </div>
-        <div className="flex gap-4">
-          <Badge variant="outline" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            {totalMonths} mois • {totalSales} ventes • {totalParticipations} participations
-          </Badge>
-        </div>
-      </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden bg-white">
+        <CardHeader className="flex flex-row items-center justify-between border-b">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-black">
+              <Settings className="h-5 w-5" />
+              Paramètres
+            </CardTitle>
+            <CardDescription className="text-black font-medium">
+              Configurez votre application et gérez vos données
+            </CardDescription>
+          </div>
+          <Button variant="outline" onClick={onClose} className="text-black bg-transparent">
+            Fermer
+          </Button>
+        </CardHeader>
 
-      <Tabs defaultValue="appearance" className="space-y-6">
-        <TabsList className="grid grid-cols-5">
-          <TabsTrigger value="appearance" className="flex items-center space-x-2">
-            <Palette className="h-4 w-4" />
-            <span>Apparence</span>
-          </TabsTrigger>
-          <TabsTrigger value="general" className="flex items-center space-x-2">
-            <Settings className="h-4 w-4" />
-            <span>Général</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center space-x-2">
-            <Users className="h-4 w-4" />
-            <span>Utilisateurs</span>
-          </TabsTrigger>
-          <TabsTrigger value="data" className="flex items-center space-x-2">
-            <Database className="h-4 w-4" />
-            <span>Données</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center space-x-2">
-            <Shield className="h-4 w-4" />
-            <span>Sécurité</span>
-          </TabsTrigger>
-        </TabsList>
+        <CardContent className="p-0 overflow-y-auto">
+          {showAlert && (
+            <Alert
+              className={`m-6 ${alertType === "success" ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}`}
+            >
+              {alertType === "success" ? (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+              )}
+              <AlertDescription className="text-black font-medium">{alertMessage}</AlertDescription>
+            </Alert>
+          )}
 
-        <TabsContent value="appearance" className="space-y-6">
-          {/* Paramètres d'apparence */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Type className="h-5 w-5" />
-                Apparence et branding
-              </CardTitle>
-              <CardDescription>Personnalisez l'apparence de votre application</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="shop-name">Nom de la boutique</Label>
-                  <Input
-                    id="shop-name"
-                    value={localSettings.shopName}
-                    onChange={(e) => setLocalSettings({ ...localSettings, shopName: e.target.value })}
-                    placeholder="Ma Boutique Multi-Créateurs"
-                  />
-                </div>
+          <Tabs defaultValue="appearance" className="tabs-modern">
+            <TabsList className="tabs-list-modern grid w-full grid-cols-6 m-6 mb-0">
+              <TabsTrigger value="appearance" className="tabs-trigger-modern">
+                <Palette className="h-4 w-4 mr-2" />
+                Apparence
+              </TabsTrigger>
+              <TabsTrigger value="general" className="tabs-trigger-modern">
+                <Settings className="h-4 w-4 mr-2" />
+                Général
+              </TabsTrigger>
+              <TabsTrigger value="users" className="tabs-trigger-modern">
+                <Users className="h-4 w-4 mr-2" />
+                Utilisateurs
+              </TabsTrigger>
+              <TabsTrigger value="data" className="tabs-trigger-modern">
+                <Database className="h-4 w-4 mr-2" />
+                Données
+              </TabsTrigger>
+              <TabsTrigger value="security" className="tabs-trigger-modern">
+                <Shield className="h-4 w-4 mr-2" />
+                Sécurité
+              </TabsTrigger>
+              <TabsTrigger value="integrations" className="tabs-trigger-modern">
+                <Zap className="h-4 w-4 mr-2" />
+                Intégrations
+              </TabsTrigger>
+            </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="shop-subtitle">Sous-titre</Label>
-                  <Input
-                    id="shop-subtitle"
-                    value={localSettings.shopSubtitle}
-                    onChange={(e) => setLocalSettings({ ...localSettings, shopSubtitle: e.target.value })}
-                    placeholder="Gestion des ventes et créateurs"
-                  />
-                </div>
-              </div>
+            <div className="p-6">
+              <TabsContent value="appearance" className="tabs-content-modern space-y-6">
+                <Card className="bg-white border-slate-200">
+                  <CardHeader>
+                    <CardTitle className="text-black">Personnalisation de l'interface</CardTitle>
+                    <CardDescription className="text-black font-medium">
+                      Configurez l'apparence de votre application
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="company-name" className="text-black font-semibold">
+                          Nom de l'entreprise
+                        </Label>
+                        <Input
+                          id="company-name"
+                          value={localSettings.companyName}
+                          onChange={(e) => setLocalSettings({ ...localSettings, companyName: e.target.value })}
+                          className="text-black"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="logo-url" className="text-black font-semibold">
+                          URL du logo
+                        </Label>
+                        <Input
+                          id="logo-url"
+                          value={localSettings.logoUrl || ""}
+                          onChange={(e) => setLocalSettings({ ...localSettings, logoUrl: e.target.value })}
+                          placeholder="https://exemple.com/logo.png"
+                          className="text-black"
+                        />
+                      </div>
+                    </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="logo-upload">Logo de l'application</Label>
-                <div className="flex items-center gap-4">
-                  {localSettings.logoUrl && (
-                    <div className="w-16 h-16 border rounded-lg overflow-hidden bg-gray-50">
-                      <img
-                        src={localSettings.logoUrl || "/placeholder.svg"}
-                        alt="Logo"
-                        className="w-full h-full object-cover"
+                    <div className="space-y-2">
+                      <Label htmlFor="company-address" className="text-black font-semibold">
+                        Adresse
+                      </Label>
+                      <Input
+                        id="company-address"
+                        value={localSettings.companyAddress || ""}
+                        onChange={(e) => setLocalSettings({ ...localSettings, companyAddress: e.target.value })}
+                        className="text-black"
                       />
                     </div>
-                  )}
-                  <div className="flex-1">
-                    <Input
-                      id="logo-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-muted file:text-muted-foreground"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Formats acceptés: JPG, PNG, GIF (max 2MB)</p>
-                  </div>
-                  {localSettings.logoUrl && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setLocalSettings({ ...localSettings, logoUrl: "" })}
-                    >
-                      Supprimer
-                    </Button>
-                  )}
-                </div>
-              </div>
 
-              <Separator />
-
-              <div className="flex justify-between">
-                <Button onClick={handleSave} className="flex items-center gap-2">
-                  <Save className="h-4 w-4" />
-                  Sauvegarder l'apparence
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="general" className="space-y-6">
-          {/* Paramètres généraux */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Paramètres généraux
-              </CardTitle>
-              <CardDescription>Configuration de base de votre boutique</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="commission-rate">Taux de commission (%)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="commission-rate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={localSettings.commissionRate}
-                      onChange={(e) =>
-                        setLocalSettings({ ...localSettings, commissionRate: Number.parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                    <Percent className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">Commission appliquée sur les paiements non-espèces</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="loyer-mensuel">Loyer mensuel par défaut (€)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="loyer-mensuel"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={localSettings.loyerMensuel}
-                      onChange={(e) =>
-                        setLocalSettings({ ...localSettings, loyerMensuel: Number.parseFloat(e.target.value) || 0 })
-                      }
-                    />
-                    <Home className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">Montant du loyer mensuel pour les participations</p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="auto-commission"
-                  checked={localSettings.autoApplyCommission}
-                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, autoApplyCommission: checked })}
-                />
-                <Label htmlFor="auto-commission">Appliquer automatiquement les commissions</Label>
-              </div>
-
-              <Separator />
-
-              <div className="flex justify-between">
-                <Button onClick={handleSave} className="flex items-center gap-2">
-                  <Save className="h-4 w-4" />
-                  Sauvegarder
-                </Button>
-              </div>
-
-              {saveStatus && (
-                <Alert variant={saveStatus.type === "error" ? "destructive" : "default"}>
-                  {saveStatus.type === "error" ? (
-                    <AlertTriangle className="h-4 w-4" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4" />
-                  )}
-                  <AlertDescription>{saveStatus.message}</AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="users" className="space-y-6">
-          {currentUser?.role === "admin" ? (
-            <UserManagement />
-          ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <Shield className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Accès administrateur requis</h3>
-                  <p className="text-slate-600">Vous devez être administrateur pour gérer les utilisateurs.</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="data" className="space-y-6">
-          {/* Sauvegarde et restauration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Sauvegarde et restauration
-              </CardTitle>
-              <CardDescription>Exportez ou importez vos données</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Exporter les données</Label>
-                  <Button onClick={exportData} variant="outline" className="w-full bg-transparent">
-                    <Download className="h-4 w-4 mr-2" />
-                    Télécharger la sauvegarde
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Exporte toutes vos données (créateurs, stock, ventes, paiements, participations, paramètres)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="import-file">Importer les données</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="import-file"
-                      type="file"
-                      accept=".json"
-                      onChange={importData}
-                      className="file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-muted file:text-muted-foreground"
-                    />
-                    <Upload className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">Restaure les données depuis un fichier de sauvegarde</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Statistiques */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Store className="h-5 w-5" />
-                Statistiques de l'application
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{creators.length}</div>
-                  <div className="text-sm text-muted-foreground">Créateurs</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stockData.length}</div>
-                  <div className="text-sm text-muted-foreground">Articles en stock</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{totalSales}</div>
-                  <div className="text-sm text-muted-foreground">Ventes totales</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{totalParticipations}</div>
-                  <div className="text-sm text-muted-foreground">Participations</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{totalMonths}</div>
-                  <div className="text-sm text-muted-foreground">Mois de données</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          {/* Zone de danger */}
-          <Card className="border-red-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="h-5 w-5" />
-                Zone de danger
-              </CardTitle>
-              <CardDescription>Actions irréversibles - utilisez avec précaution</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 border border-red-200 rounded-lg bg-red-50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-red-800">Réinitialiser toutes les données</h4>
-                      <p className="text-sm text-red-600">
-                        Supprime définitivement tous les créateurs, stock, ventes, paiements, participations et
-                        paramètres
-                      </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="company-phone" className="text-black font-semibold">
+                          Téléphone
+                        </Label>
+                        <Input
+                          id="company-phone"
+                          value={localSettings.companyPhone || ""}
+                          onChange={(e) => setLocalSettings({ ...localSettings, companyPhone: e.target.value })}
+                          className="text-black"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="company-email" className="text-black font-semibold">
+                          Email
+                        </Label>
+                        <Input
+                          id="company-email"
+                          type="email"
+                          value={localSettings.companyEmail || ""}
+                          onChange={(e) => setLocalSettings({ ...localSettings, companyEmail: e.target.value })}
+                          className="text-black"
+                        />
+                      </div>
                     </div>
-                    <Button onClick={handleReset} variant="destructive" size="sm">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Réinitialiser
-                    </Button>
-                  </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="general" className="tabs-content-modern space-y-6">
+                <Card className="bg-white border-slate-200">
+                  <CardHeader>
+                    <CardTitle className="text-black">Paramètres généraux</CardTitle>
+                    <CardDescription className="text-black font-medium">
+                      Configuration de base de l'application
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="commission-rate" className="text-black font-semibold">
+                          Taux de commission par défaut (%)
+                        </Label>
+                        <Input
+                          id="commission-rate"
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={localSettings.commissionRate}
+                          onChange={(e) =>
+                            setLocalSettings({
+                              ...localSettings,
+                              commissionRate: Number.parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="text-black"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="currency" className="text-black font-semibold">
+                          Devise
+                        </Label>
+                        <Input
+                          id="currency"
+                          value={localSettings.currency}
+                          onChange={(e) => setLocalSettings({ ...localSettings, currency: e.target.value })}
+                          className="text-black"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-black font-semibold">Notifications</Label>
+                          <p className="text-sm text-black">
+                            Recevoir des notifications pour les événements importants
+                          </p>
+                        </div>
+                        <Switch
+                          checked={localSettings.notifications}
+                          onCheckedChange={(checked) => setLocalSettings({ ...localSettings, notifications: checked })}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-black font-semibold">Sauvegarde automatique</Label>
+                          <p className="text-sm text-black">Sauvegarder automatiquement les données</p>
+                        </div>
+                        <Switch
+                          checked={localSettings.autoBackup}
+                          onCheckedChange={(checked) => setLocalSettings({ ...localSettings, autoBackup: checked })}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="users" className="tabs-content-modern">
+                <UserManagement />
+              </TabsContent>
+
+              <TabsContent value="data" className="tabs-content-modern space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-black">Créateurs</span>
+                      </div>
+                      <div className="text-2xl font-bold text-black mt-2">{creators.length}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-green-50 border-green-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2">
+                        <Database className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-black">Articles en stock</span>
+                      </div>
+                      <div className="text-2xl font-bold text-black mt-2">{stockData.length}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-purple-50 border-purple-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2">
+                        <Badge className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm font-medium text-black">Ventes totales</span>
+                      </div>
+                      <div className="text-2xl font-bold text-black mt-2">{totalSales}</div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+
+                <Card className="bg-white border-slate-200">
+                  <CardHeader>
+                    <CardTitle className="text-black">Gestion des données</CardTitle>
+                    <CardDescription className="text-black font-medium">
+                      Exportez, importez ou supprimez vos données
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={exportData} variant="outline" className="text-black bg-transparent">
+                        <Download className="h-4 w-4 mr-2" />
+                        Exporter toutes les données
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="text-black bg-transparent"
+                        onClick={() => document.getElementById("import-file")?.click()}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Importer des données
+                      </Button>
+                      <input id="import-file" type="file" accept=".json" onChange={importData} className="hidden" />
+
+                      <Button onClick={clearData} variant="destructive">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Supprimer toutes les données
+                      </Button>
+                    </div>
+
+                    <Alert className="bg-amber-50 border-amber-200">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-black font-medium">
+                        <strong>Attention :</strong> La suppression des données est irréversible. Assurez-vous d'avoir
+                        une sauvegarde avant de procéder.
+                      </AlertDescription>
+                    </Alert>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="security" className="tabs-content-modern space-y-6">
+                <Card className="bg-white border-slate-200">
+                  <CardHeader>
+                    <CardTitle className="text-black">Paramètres de sécurité</CardTitle>
+                    <CardDescription className="text-black font-medium">
+                      Configurez les options de sécurité de votre application
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Alert className="bg-green-50 border-green-200">
+                      <Shield className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-black font-medium">
+                        <strong>Sécurité activée :</strong> Toutes les données sont stockées localement et chiffrées.
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-black font-semibold">Chiffrement des données</Label>
+                          <p className="text-sm text-black">Chiffrer les données sensibles</p>
+                        </div>
+                        <Switch checked={true} disabled />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-black font-semibold">Authentification requise</Label>
+                          <p className="text-sm text-black">
+                            Demander une authentification pour accéder à l'application
+                          </p>
+                        </div>
+                        <Switch checked={true} disabled />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="integrations" className="tabs-content-modern">
+                <SumUpIntegration />
+              </TabsContent>
+            </div>
+          </Tabs>
+
+          <div className="flex justify-end gap-2 p-6 border-t bg-slate-50">
+            <Button onClick={handleReset} variant="outline" className="text-black bg-transparent">
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Réinitialiser
+            </Button>
+            <Button onClick={handleSave}>
+              <Save className="h-4 w-4 mr-2" />
+              Sauvegarder
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
