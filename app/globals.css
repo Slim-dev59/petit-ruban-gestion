@@ -15,21 +15,21 @@
     --font-sans: "Inter", system-ui, -apple-system, sans-serif;
     --font-mono: "JetBrains Mono", "Fira Code", monospace;
 
-    /* Couleurs modernes avec contraste élevé */
+    /* Couleurs modernes avec contraste élevé - Police noire */
     --background: 248 250 252;
-    --foreground: 15 23 42;
+    --foreground: 0 0 0; /* Noir pur pour le texte */
     --card: 255 255 255;
-    --card-foreground: 15 23 42;
+    --card-foreground: 0 0 0; /* Noir pur pour le texte des cartes */
     --popover: 255 255 255;
-    --popover-foreground: 15 23 42;
+    --popover-foreground: 0 0 0; /* Noir pur pour le texte des popovers */
     --primary: 59 130 246;
     --primary-foreground: 255 255 255;
     --secondary: 241 245 249;
-    --secondary-foreground: 15 23 42;
+    --secondary-foreground: 0 0 0; /* Noir pur pour le texte secondaire */
     --muted: 241 245 249;
-    --muted-foreground: 71 85 105;
+    --muted-foreground: 55 65 81; /* Gris foncé pour le texte atténué */
     --accent: 241 245 249;
-    --accent-foreground: 15 23 42;
+    --accent-foreground: 0 0 0; /* Noir pur pour le texte d'accent */
     --destructive: 239 68 68;
     --destructive-foreground: 255 255 255;
     --border: 226 232 240;
@@ -74,6 +74,7 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    color: rgb(0 0 0); /* Force le noir pour tout le texte */
   }
 
   /* Scrollbar moderne */
@@ -92,6 +93,23 @@
 }
 
 @layer components {
+  /* Onglets modernes cohérents */
+  .tabs-modern {
+    @apply w-full;
+  }
+
+  .tabs-list-modern {
+    @apply inline-flex h-12 items-center justify-start rounded-xl bg-slate-100 p-1 text-black w-full overflow-x-auto;
+  }
+
+  .tabs-trigger-modern {
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm hover:bg-white/60 text-black min-w-fit;
+  }
+
+  .tabs-content-modern {
+    @apply mt-6 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-black;
+  }
+
   /* Composants personnalisés */
   .glass-effect {
     @apply bg-white/80 backdrop-blur-xl border border-white/20;
@@ -115,7 +133,7 @@
 
   /* Boutons modernes */
   .btn-modern {
-    @apply inline-flex items-center justify-center rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-black;
   }
 
   .btn-primary {
@@ -123,7 +141,7 @@
   }
 
   .btn-secondary {
-    @apply btn-modern bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 shadow-sm hover:shadow-md;
+    @apply btn-modern bg-white text-black hover:bg-slate-50 border border-slate-200 shadow-sm hover:shadow-md;
   }
 
   .btn-success {
@@ -140,7 +158,7 @@
 
   /* Inputs modernes */
   .input-modern {
-    @apply flex h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200;
+    @apply flex h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-black ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200;
   }
 
   .input-modern:focus {
@@ -229,6 +247,24 @@
   .responsive-flex {
     @apply flex flex-col sm:flex-row items-start sm:items-center gap-4;
   }
+
+  /* Force le texte noir partout */
+  .text-force-black {
+    color: rgb(0 0 0) !important;
+  }
+
+  /* Styles pour les onglets cohérents */
+  .tab-header {
+    @apply flex items-center justify-between mb-6;
+  }
+
+  .tab-title {
+    @apply text-2xl font-bold text-black;
+  }
+
+  .tab-description {
+    @apply text-slate-600 mt-1;
+  }
 }
 
 /* Animations personnalisées */
@@ -284,9 +320,37 @@
 }
 
 .empty-state-title {
-  @apply text-xl font-bold text-slate-900 mb-3;
+  @apply text-xl font-bold text-black mb-3;
 }
 
 .empty-state-description {
   @apply text-base text-slate-600 max-w-md;
+}
+
+/* Force le noir sur tous les éléments de texte */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+div,
+label,
+button {
+  color: rgb(0 0 0) !important;
+}
+
+/* Exception pour les éléments avec des couleurs spécifiques */
+.text-white,
+.text-red-600,
+.text-green-600,
+.text-blue-600,
+.text-amber-600,
+.text-slate-400,
+.text-slate-500,
+.text-slate-600,
+.text-muted-foreground {
+  color: inherit !important;
 }
