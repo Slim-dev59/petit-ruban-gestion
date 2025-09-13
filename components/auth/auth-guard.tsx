@@ -15,16 +15,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Vérifier la validité de la session au chargement
     const checkSession = () => {
-      const valid = isSessionValid()
-      console.log("🛡️ Vérification de session:", valid ? "Valide" : "Invalide")
+      isSessionValid()
       setIsLoading(false)
     }
 
     checkSession()
 
-    // Prolonger la session périodiquement si l'utilisateur est actif
     const interval = setInterval(
       () => {
         if (isAuthenticated && isSessionValid()) {
@@ -32,12 +29,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         }
       },
       30 * 60 * 1000,
-    ) // Toutes les 30 minutes
+    )
 
     return () => clearInterval(interval)
   }, [isAuthenticated, isSessionValid, extendSession])
 
-  // Afficher un loader pendant la vérification initiale
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -49,11 +45,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
     )
   }
 
-  // Afficher le formulaire de connexion si non authentifié
   if (!isAuthenticated || !isSessionValid()) {
     return <LoginForm />
   }
 
-  // Afficher le contenu protégé si authentifié
   return <>{children}</>
 }

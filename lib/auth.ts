@@ -3,83 +3,84 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-interface User {
+export interface User {
+  id: string
   username: string
   password: string
   displayName: string
+  role: "admin" | "user"
+  createdAt: string
+  lastLogin?: string
 }
 
 interface AuthState {
   isAuthenticated: boolean
-  user: User | null
+  currentUser: User | null
+  users: User[]
   sessionExpiry: number | null
+
+  // Actions d'authentification
   login: (username: string, password: string) => boolean
   logout: () => void
-  updateUser: (updates: Partial<Pick<User, "displayName" | "password">>) => void
   isSessionValid: () => boolean
   extendSession: () => void
+
+  // Actions de gestion des utilisateurs
+  addUser: (userData: Omit<User, "id" | "createdAt">) => boolean
+  updateUser: (userId: string, updates: Partial<Pick<User, "username" | "displayName" | "role">>) => boolean
+  updatePassword: (userId: string, newPassword: string) => boolean
+  deleteUser: (userId: string) => boolean
+  getAllUsers: () => User[]
 }
 
-const DEFAULT_USERS: User[] = [
-  {
-    username: "admin",
-    password: "VotreNouveauMotDePasse2024!",
-    displayName: "Administrateur",
-  },
-]
+const SESSION_DURATION = 8 * 60 * 60 * 1000 // 8 heures
 
-const SESSION_DURATION = 8 * 60 * 60 * 1000 // 8 heures en millisecondes
+// Utilisateur temporaire pour l'accès initial (à supprimer après création d'un admin)
+const INITIAL_USER: User = {
+  id: "temp-admin",
+  username: "setup",
+  password: "Setup2024!",
+  displayName: "Configuration Initiale",
+  role: "admin",
+  createdAt: new Date().toISOString(),
+}
 
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
       isAuthenticated: false,
-      user: null,
+      currentUser: null,
+      users: [INITIAL_USER],
       sessionExpiry: null,
 
       login: (username: string, password: string) => {
-        console.log("🔐 Tentative de connexion:", { username, password })
-
-        const user = DEFAULT_USERS.find((u) => u.username === username && u.password === password)
-
-        console.log("👤 Utilisateur trouvé:", user ? "Oui" : "Non")
+        const { users } = get()
+        const user = users.find((u) => u.username === username && u.password === password)
 
         if (user) {
           const expiry = Date.now() + SESSION_DURATION
-          set({
+          const updatedUser = { ...user, lastLogin: new Date().toISOString() }
+
+          // Mettre à jour la dernière connexion
+          set((state) => ({
             isAuthenticated: true,
-            user,
+            currentUser: updatedUser,
             sessionExpiry: expiry,
-          })
-          console.log("✅ Connexion réussie, session expire à:", new Date(expiry))
+            users: state.users.map((u) => (u.id === user.id ? updatedUser : u)),
+          }))
+
           return true
         }
 
-        console.log("❌ Échec de la connexion")
         return false
       },
 
       logout: () => {
-        console.log("🚪 Déconnexion")
         set({
           isAuthenticated: false,
-          user: null,
+          currentUser: null,
           sessionExpiry: null,
         })
-      },
-
-      updateUser: (updates) => {
-        const currentUser = get().user
-        if (currentUser) {
-          const updatedUser = { ...currentUser, ...updates }
-          set({ user: updatedUser })
-
-          // Mettre à jour dans DEFAULT_USERS pour la persistance
-          const userIndex = DEFAULT_USERS.findIndex((u) => u.username === currentUser.username)
-          if (userIndex !== -1) {
-            DEFAULT_USERS[userIndex] = updatedUser
-          }
-        }
       },
 
       isSessionValid: () => {
@@ -90,7 +91,6 @@ export const useAuth = create<AuthState>()(
 
         const isValid = Date.now() < sessionExpiry
         if (!isValid) {
-          console.log("⏰ Session expirée")
           get().logout()
         }
 
@@ -102,15 +102,87 @@ export const useAuth = create<AuthState>()(
         if (isAuthenticated) {
           const newExpiry = Date.now() + SESSION_DURATION
           set({ sessionExpiry: newExpiry })
-          console.log("🔄 Session prolongée jusqu'à:", new Date(newExpiry))
         }
+      },
+
+      addUser: (userData) => {
+        const { users } = get()
+
+        // Vérifier si le nom d'utilisateur existe déjà
+        if (users.some((u) => u.username === userData.username)) {
+          return false
+        }
+
+        const newUser: User = {
+          ...userData,
+          id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date().toISOString(),
+        }
+
+        set((state) => ({
+          users: [...state.users, newUser],
+        }))
+
+        return true
+      },
+
+      updateUser: (userId, updates) => {
+        const { users } = get()
+
+        // Vérifier si le nouveau nom d'utilisateur existe déjà (si on le change)
+        if (updates.username && users.some((u) => u.id !== userId && u.username === updates.username)) {
+          return false
+        }
+
+        set((state) => ({
+          users: state.users.map((u) => (u.id === userId ? { ...u, ...updates } : u)),
+          currentUser: state.currentUser?.id === userId ? { ...state.currentUser, ...updates } : state.currentUser,
+        }))
+
+        return true
+      },
+
+      updatePassword: (userId, newPassword) => {
+        set((state) => ({
+          users: state.users.map((u) => (u.id === userId ? { ...u, password: newPassword } : u)),
+        }))
+
+        return true
+      },
+
+      deleteUser: (userId) => {
+        const { users, currentUser } = get()
+
+        // Empêcher la suppression du dernier admin
+        const admins = users.filter((u) => u.role === "admin")
+        const userToDelete = users.find((u) => u.id === userId)
+
+        if (userToDelete?.role === "admin" && admins.length === 1) {
+          return false // Ne peut pas supprimer le dernier admin
+        }
+
+        // Empêcher la suppression de son propre compte
+        if (currentUser?.id === userId) {
+          return false
+        }
+
+        set((state) => ({
+          users: state.users.filter((u) => u.id !== userId),
+        }))
+
+        return true
+      },
+
+      getAllUsers: () => {
+        return get().users
       },
     }),
     {
       name: "auth-storage",
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
-        user: state.user,
+        currentUser: state.currentUser,
+        users: state.users,
         sessionExpiry: state.sessionExpiry,
       }),
     },

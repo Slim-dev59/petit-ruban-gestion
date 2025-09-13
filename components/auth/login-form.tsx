@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth"
-import { Lock, User, AlertCircle, Eye, EyeOff } from "lucide-react"
+import { Lock, User, AlertCircle, Eye, EyeOff, Shield } from "lucide-react"
 
 export function LoginForm() {
-  const [username, setUsername] = useState("admin")
-  const [password, setPassword] = useState("VotreNouveauMotDePasse2024!")
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -25,29 +25,17 @@ export function LoginForm() {
     setIsLoading(true)
     setError("")
 
-    console.log("🔐 Formulaire soumis avec:", { username, password })
-
     try {
       const success = login(username.trim(), password)
 
       if (!success) {
         setError("Nom d'utilisateur ou mot de passe incorrect")
-        console.log("❌ Échec de la connexion")
-      } else {
-        console.log("✅ Connexion réussie")
       }
     } catch (err) {
-      console.error("💥 Erreur lors de la connexion:", err)
       setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const fillDefaults = () => {
-    setUsername("admin")
-    setPassword("VotreNouveauMotDePasse2024!")
-    setError("")
   }
 
   return (
@@ -55,28 +43,17 @@ export function LoginForm() {
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur">
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <Lock className="w-8 h-8 text-white" />
+            <Shield className="w-8 h-8 text-white" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold text-slate-900">Connexion sécurisée</CardTitle>
-            <CardDescription className="text-slate-600 font-medium">Accédez à votre espace de gestion</CardDescription>
+            <CardTitle className="text-2xl font-bold text-slate-900">Connexion</CardTitle>
+            <CardDescription className="text-slate-600 font-medium">
+              Accédez à votre espace de gestion sécurisé
+            </CardDescription>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Informations de debug */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-            <div className="font-semibold text-blue-800 mb-2">🔍 Informations de connexion :</div>
-            <div className="text-blue-700">
-              <div>
-                Utilisateur actuel : <code className="bg-blue-100 px-1 rounded">{username}</code>
-              </div>
-              <div>
-                Mot de passe : <code className="bg-blue-100 px-1 rounded">{password.substring(0, 8)}...</code>
-              </div>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-slate-900 font-semibold">
@@ -130,24 +107,13 @@ export function LoginForm() {
               </Alert>
             )}
 
-            <div className="space-y-3">
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-2.5 shadow-lg"
-                disabled={isLoading}
-              >
-                {isLoading ? "Connexion..." : "Se connecter"}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={fillDefaults}
-                className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 bg-transparent"
-              >
-                Utiliser les identifiants par défaut
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-2.5 shadow-lg"
+              disabled={isLoading || !username || !password}
+            >
+              {isLoading ? "Connexion..." : "Se connecter"}
+            </Button>
           </form>
 
           <div className="text-center text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
