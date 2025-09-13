@@ -2,308 +2,314 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Upload,
-  FileText,
-  Users,
-  Package,
-  ShoppingCart,
-  Download,
-  CheckCircle,
-  AlertTriangle,
-  Info,
-  X,
-} from "lucide-react"
-import { CreatorExtraction } from "./creator-extraction"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Users, Package, History, Trash2 } from "lucide-react"
+import { useStore } from "@/lib/store"
 import { SalesImport } from "./sales-import"
 
-interface ImportFilesProps {
-  onClose: () => void
-}
+export function ImportFiles() {
+  const [stockFile, setStockFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
-export function ImportFiles({ onClose }: ImportFilesProps) {
-  const [activeTab, setActiveTab] = useState("creators")
-  const [showAlert, setShowAlert] = useState(false)
-  const [alertType, setAlertType] = useState<"success" | "error" | "warning" | "info">("info")
-  const [alertMessage, setAlertMessage] = useState("")
-  const creatorsFileRef = useRef<HTMLInputElement>(null)
-  const stockFileRef = useRef<HTMLInputElement>(null)
+  const { importStockData, stockData, creators, getImportHistory, removeImportHistory } = useStore()
 
-  const showNotification = (type: "success" | "error" | "warning" | "info", message: string) => {
-    setAlertType(type)
-    setAlertMessage(message)
-    setShowAlert(true)
-    setTimeout(() => setShowAlert(false), 3000)
+  const parseCSV = (text: string): any[] => {
+    const lines = text.split("\n")
+    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
+
+    console.log("Headers du fichier de stock:", headers)
+    console.log("Nombre de colonnes:", headers.length)
+
+    return lines
+      .slice(1)
+      .map((line) => {
+        // Parsing CSV amélioré pour gérer les virgules dans les valeurs entre guillemets
+        const values: string[] = []
+        let current = ""
+        let inQuotes = false
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === "," && !inQuotes) {
+            values.push(current.trim())
+            current = ""
+          } else {
+            current += char
+          }
+        }
+        values.push(current.trim()) // Ajouter la dernière valeur
+
+        const obj: any = {}
+        headers.forEach((header, index) => {
+          obj[header] = values[index] || ""
+        })
+        return obj
+      })
+      .filter((row) => Object.values(row).some((val) => val !== ""))
   }
 
-  const handleCreatorsImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  const handleStockFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setStockFile(file)
+    }
+  }
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string
-        const lines = text.split("\n").filter((line) => line.trim())
-        const headers = lines[0].split(",").map((h) => h.trim())
+  const handleStockImport = async () => {
+    if (!stockFile) {
+      setImportStatus({ type: "error", message: "Veuillez sélectionner le fichier de stock" })
+      return
+    }
 
-        if (!headers.includes("Nom") || !headers.includes("Commission")) {
-          showNotification("error", 'Le fichier doit contenir les colonnes "Nom" et "Commission"')
+    setImporting(true)
+    setImportStatus(null)
+
+    try {
+      const stockText = await stockFile.text()
+      const stockData = parseCSV(stockText)
+
+      console.log("Données stock brutes:", stockData.slice(0, 3))
+
+      // Traitement spécifique pour le format SumUp
+      const processedData: any[] = []
+      let currentCreator = ""
+
+      stockData.forEach((row, index) => {
+        const itemName = row["Item name"] || ""
+        const variations = row["Variations"] || ""
+        const price = row["Price"] || "0"
+        const quantity = row["Quantity"] || "0"
+        const sku = row["SKU"] || ""
+        const category = row["Category"] || ""
+        const lowStockThreshold = row["Low stock threshold"] || "0"
+        const image = row["Image 1"] || ""
+
+        console.log(`Ligne ${index}: ItemName="${itemName}", Variations="${variations}"`)
+
+        // Si on a un Item name mais pas de Variations, c'est un créateur
+        if (itemName.trim() && !variations.trim()) {
+          currentCreator = itemName.trim()
+          console.log(`Nouveau créateur détecté: ${currentCreator}`)
           return
         }
 
-        const creators = lines.slice(1).map((line, index) => {
-          const values = line.split(",").map((v) => v.trim())
-          const creator: any = { id: Date.now() + index }
+        // Si on a des Variations et un créateur actuel, c'est un article
+        if (variations.trim() && currentCreator) {
+          const stockItem = {
+            createur: currentCreator,
+            article: variations.trim(),
+            price: price,
+            quantity: quantity,
+            category: category,
+            sku: sku,
+            lowStockThreshold: lowStockThreshold,
+            image: image,
+          }
 
-          headers.forEach((header, i) => {
-            if (header === "Commission") {
-              creator[header.toLowerCase()] = Number.parseFloat(values[i]) || 30
-            } else {
-              creator[header.toLowerCase()] = values[i] || ""
-            }
-          })
-
-          return creator
-        })
-
-        const existingCreators = JSON.parse(localStorage.getItem("creators") || "[]")
-        const updatedCreators = [...existingCreators, ...creators]
-        localStorage.setItem("creators", JSON.stringify(updatedCreators))
-
-        showNotification("success", `${creators.length} créateurs importés avec succès`)
-      } catch (error) {
-        showNotification("error", "Erreur lors de l'import du fichier créateurs")
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  const handleStockImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string
-        const lines = text.split("\n").filter((line) => line.trim())
-        const headers = lines[0].split(",").map((h) => h.trim())
-
-        if (!headers.includes("Nom") || !headers.includes("Prix") || !headers.includes("Créateur")) {
-          showNotification("error", 'Le fichier doit contenir les colonnes "Nom", "Prix" et "Créateur"')
-          return
+          console.log(`Article ajouté:`, stockItem)
+          processedData.push(stockItem)
         }
+      })
 
-        const stock = lines.slice(1).map((line, index) => {
-          const values = line.split(",").map((v) => v.trim())
-          const item: any = { id: Date.now() + index }
+      console.log("Articles traités:", processedData.length)
+      console.log("Échantillon:", processedData.slice(0, 3))
 
-          headers.forEach((header, i) => {
-            if (header === "Prix") {
-              item[header.toLowerCase()] = Number.parseFloat(values[i]) || 0
-            } else if (header === "Quantité") {
-              item.quantite = Number.parseInt(values[i]) || 1
-            } else {
-              item[header.toLowerCase()] = values[i] || ""
-            }
-          })
+      importStockData(processedData)
 
-          return item
-        })
+      setImportStatus({
+        type: "success",
+        message: `✅ ${processedData.length} articles importés avec succès !`,
+      })
 
-        const existingStock = JSON.parse(localStorage.getItem("stock") || "[]")
-        const updatedStock = [...existingStock, ...stock]
-        localStorage.setItem("stock", JSON.stringify(updatedStock))
-
-        showNotification("success", `${stock.length} articles importés avec succès`)
-      } catch (error) {
-        showNotification("error", "Erreur lors de l'import du fichier stock")
-      }
+      // Reset
+      setStockFile(null)
+    } catch (error) {
+      console.error("Erreur lors de l'import:", error)
+      setImportStatus({
+        type: "error",
+        message: "Erreur lors de l'analyse du fichier de stock",
+      })
+    } finally {
+      setImporting(false)
     }
-    reader.readAsText(file)
   }
 
-  const downloadTemplate = (type: "creators" | "stock") => {
-    let csvContent = ""
-    let filename = ""
-
-    if (type === "creators") {
-      csvContent = "Nom,Commission,Email,Téléphone\nExemple Créateur,30,exemple@email.com,0123456789"
-      filename = "template-createurs.csv"
-    } else {
-      csvContent =
-        "Nom,Prix,Créateur,Quantité,Description\nExemple Article,25.99,Exemple Créateur,5,Description de l'article"
-      filename = "template-stock.csv"
-    }
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", filename)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    showNotification("success", `Template ${type} téléchargé`)
-  }
+  const importHistory = getImportHistory()
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-force-black">
-              <Upload className="h-5 w-5" />
-              Import de données
-            </CardTitle>
-            <CardDescription className="text-force-black">
-              Importez vos créateurs, stock, ventes et extrayez des données
-            </CardDescription>
-          </div>
-          <Button variant="outline" onClick={onClose} className="text-force-black bg-transparent">
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Import des fichiers</h2>
+          <p className="text-slate-600 font-medium">Importez vos données de stock et de ventes</p>
+        </div>
+        <div className="flex gap-4">
+          <Badge variant="outline" className="flex items-center gap-2 bg-white border-slate-200">
+            <Users className="h-4 w-4" />
+            {creators.length} créateurs
+          </Badge>
+          <Badge variant="outline" className="flex items-center gap-2 bg-white border-slate-200">
+            <Package className="h-4 w-4" />
+            {stockData.length} articles
+          </Badge>
+        </div>
+      </div>
 
-        <CardContent className="overflow-y-auto">
-          {showAlert && (
-            <Alert
-              className={`mb-4 ${
-                alertType === "success"
-                  ? "border-green-500 bg-green-50"
-                  : alertType === "error"
-                    ? "border-red-500 bg-red-50"
-                    : alertType === "warning"
-                      ? "border-yellow-500 bg-yellow-50"
-                      : "border-blue-500 bg-blue-50"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {alertType === "success" && <CheckCircle className="h-4 w-4 text-green-600" />}
-                {alertType === "error" && <AlertTriangle className="h-4 w-4 text-red-600" />}
-                {alertType === "warning" && <AlertTriangle className="h-4 w-4 text-yellow-600" />}
-                {alertType === "info" && <Info className="h-4 w-4 text-blue-600" />}
-                <AlertDescription className="text-force-black">{alertMessage}</AlertDescription>
+      <Tabs defaultValue="stock" className="space-y-6">
+        <TabsList className="grid grid-cols-3">
+          <TabsTrigger value="stock" className="flex items-center space-x-2">
+            <Package className="h-4 w-4" />
+            <span>Import Stock</span>
+          </TabsTrigger>
+
+          <TabsTrigger value="sales" className="flex items-center space-x-2">
+            <Upload className="h-4 w-4" />
+            <span>Import Ventes</span>
+          </TabsTrigger>
+
+          <TabsTrigger value="history" className="flex items-center space-x-2">
+            <History className="h-4 w-4" />
+            <span>Historique</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="stock">
+          <Card className="bg-white border-slate-200 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Import du stock
+              </CardTitle>
+              <CardDescription className="font-medium">
+                Importez le fichier CSV d'export SumUp. Les créateurs seront détectés automatiquement à partir des "Item
+                name" et les articles à partir des "Variations".
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="stock-file" className="font-semibold">
+                  Fichier de stock (CSV)
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input id="stock-file" type="file" accept=".csv" onChange={handleStockFileChange} />
+                  {stockFile && <CheckCircle className="h-4 w-4 text-green-500" />}
+                </div>
               </div>
-            </Alert>
-          )}
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="tabs-modern">
-            <TabsList className="tabs-list-modern grid w-full grid-cols-4">
-              <TabsTrigger value="creators" className="tabs-trigger-modern">
-                <Users className="h-4 w-4 mr-2" />
-                Créateurs
-              </TabsTrigger>
-              <TabsTrigger value="stock" className="tabs-trigger-modern">
-                <Package className="h-4 w-4 mr-2" />
-                Stock
-              </TabsTrigger>
-              <TabsTrigger value="sales" className="tabs-trigger-modern">
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Ventes
-              </TabsTrigger>
-              <TabsTrigger value="extraction" className="tabs-trigger-modern">
-                <FileText className="h-4 w-4 mr-2" />
-                Extraction
-              </TabsTrigger>
-            </TabsList>
+              <Button onClick={handleStockImport} disabled={!stockFile || importing} className="w-full">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                {importing ? "Import en cours..." : "Importer le stock"}
+              </Button>
 
-            <TabsContent value="creators" className="tabs-content-modern space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-force-black">Import des créateurs</CardTitle>
-                  <CardDescription className="text-force-black">
-                    Importez une liste de créateurs depuis un fichier CSV
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-4">
-                    <Button onClick={() => downloadTemplate("creators")} variant="outline" className="text-force-black">
-                      <Download className="h-4 w-4 mr-2" />
-                      Télécharger le template
-                    </Button>
+              {importStatus && (
+                <Alert
+                  variant={importStatus.type === "error" ? "destructive" : "default"}
+                  className="bg-white border-slate-200"
+                >
+                  {importStatus.type === "error" ? (
+                    <AlertCircle className="h-4 w-4" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4" />
+                  )}
+                  <AlertDescription className="font-medium">{importStatus.message}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleCreatorsImport}
-                      className="hidden"
-                      ref={creatorsFileRef}
-                    />
-                    <Button onClick={() => creatorsFileRef.current?.click()} className="text-force-black">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Importer le fichier
-                    </Button>
-                  </div>
+        <TabsContent value="sales">
+          <SalesImport />
+        </TabsContent>
 
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-force-black">
-                      <strong>Format requis :</strong> Colonnes "Nom" et "Commission" obligatoires. Colonnes
-                      optionnelles : Email, Téléphone.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="stock" className="tabs-content-modern space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-force-black">Import du stock</CardTitle>
-                  <CardDescription className="text-force-black">
-                    Importez votre inventaire depuis un fichier CSV
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-4">
-                    <Button onClick={() => downloadTemplate("stock")} variant="outline" className="text-force-black">
-                      <Download className="h-4 w-4 mr-2" />
-                      Télécharger le template
-                    </Button>
-
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleStockImport}
-                      className="hidden"
-                      ref={stockFileRef}
-                    />
-                    <Button onClick={() => stockFileRef.current?.click()} className="text-force-black">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Importer le fichier
-                    </Button>
-                  </div>
-
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-force-black">
-                      <strong>Format requis :</strong> Colonnes "Nom", "Prix" et "Créateur" obligatoires. Colonnes
-                      optionnelles : Quantité, Description.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="sales" className="tabs-content-modern">
-              <SalesImport onNotification={showNotification} />
-            </TabsContent>
-
-            <TabsContent value="extraction" className="tabs-content-modern">
-              <CreatorExtraction onNotification={showNotification} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+        <TabsContent value="history">
+          <Card className="bg-white border-slate-200 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Historique des imports
+              </CardTitle>
+              <CardDescription className="font-medium">
+                Consultez l'historique de vos imports de ventes et leurs statistiques
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {importHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <History className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+                  <p className="font-semibold">Aucun import effectué</p>
+                  <p className="text-sm text-slate-600">L'historique de vos imports apparaîtra ici</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-semibold">Date</TableHead>
+                      <TableHead className="font-semibold">Fichier</TableHead>
+                      <TableHead className="font-semibold">Ventes totales</TableHead>
+                      <TableHead className="font-semibold">Assignées</TableHead>
+                      <TableHead className="font-semibold">Non assignées</TableHead>
+                      <TableHead className="font-semibold">Mois</TableHead>
+                      <TableHead className="font-semibold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importHistory.map((importItem) => (
+                      <TableRow key={importItem.id}>
+                        <TableCell>{new Date(importItem.importDate).toLocaleDateString("fr-FR")}</TableCell>
+                        <TableCell className="font-medium">{importItem.fileName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-white border-slate-200">
+                            {importItem.salesCount}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                            {importItem.assignedCount}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="destructive">{importItem.unassignedCount}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {importItem.months.map((month) => (
+                              <Badge key={month} variant="secondary" className="text-xs bg-slate-100 border-slate-200">
+                                {month}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeImportHistory(importItem.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
