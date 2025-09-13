@@ -3,478 +3,324 @@
 import type React from "react"
 
 import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Settings,
-  Palette,
-  Users,
-  Database,
-  Shield,
-  Zap,
-  Save,
-  RotateCcw,
-  Upload,
-  Download,
-  Trash2,
-  CheckCircle,
-  AlertTriangle,
-} from "lucide-react"
-import { useStore } from "@/lib/store"
-import { UserManagement } from "./auth/user-management"
-import { SumUpIntegration } from "./sumup-integration"
+import { UserManagement } from "@/components/auth/user-management"
+import { SumUpIntegration } from "@/components/sumup-integration"
+import { Palette, Settings, Users, Database, Shield, Zap, Upload, Building, Mail, Phone, MapPin } from "lucide-react"
 
-interface SettingsPanelProps {
-  onClose: () => void
-}
+export function SettingsPanel() {
+  const [companyInfo, setCompanyInfo] = useState({
+    name: "Boutique Multi-Créateurs",
+    address: "123 Rue de la Créativité",
+    city: "Paris",
+    postalCode: "75001",
+    phone: "01 23 45 67 89",
+    email: "contact@boutique-multi-createurs.fr",
+    website: "www.boutique-multi-createurs.fr",
+    logo: null as File | null,
+  })
 
-export function SettingsPanel({ onClose }: SettingsPanelProps) {
-  const { settings, updateSettings, creators, stockData, monthlyData, clearAllData } = useStore()
-  const [localSettings, setLocalSettings] = useState(settings)
-  const [showAlert, setShowAlert] = useState(false)
-  const [alertMessage, setAlertMessage] = useState("")
-  const [alertType, setAlertType] = useState<"success" | "error">("success")
+  const [preferences, setPreferences] = useState({
+    darkMode: false,
+    notifications: true,
+    autoSave: true,
+    language: "fr",
+    currency: "EUR",
+  })
 
-  const showNotification = (type: "success" | "error", message: string) => {
-    setAlertType(type)
-    setAlertMessage(message)
-    setShowAlert(true)
-    setTimeout(() => setShowAlert(false), 3000)
-  }
-
-  const handleSave = () => {
-    updateSettings(localSettings)
-    showNotification("success", "Paramètres sauvegardés avec succès")
-  }
-
-  const handleReset = () => {
-    const defaultSettings = {
-      commissionRate: 30,
-      currency: "EUR",
-      language: "fr",
-      theme: "light",
-      notifications: true,
-      autoBackup: false,
-      companyName: "Ma Boutique",
-      companyAddress: "",
-      companyPhone: "",
-      companyEmail: "",
-      logoUrl: "",
-    }
-    setLocalSettings(defaultSettings)
-    updateSettings(defaultSettings)
-    showNotification("success", "Paramètres réinitialisés")
-  }
-
-  const exportData = () => {
-    const data = {
-      creators,
-      stockData,
-      monthlyData,
-      settings: localSettings,
-      exportDate: new Date().toISOString(),
-    }
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `boutique-backup-${new Date().toISOString().split("T")[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-
-    showNotification("success", "Données exportées avec succès")
-  }
-
-  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string)
-
-        // Validation basique
-        if (!data.creators || !data.stockData || !data.monthlyData) {
-          throw new Error("Format de fichier invalide")
-        }
-
-        // Importer les données (cette fonctionnalité nécessiterait des méthodes dans le store)
-        showNotification("success", "Données importées avec succès")
-      } catch (error) {
-        showNotification("error", "Erreur lors de l'import des données")
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  const clearData = () => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer toutes les données ? Cette action est irréversible.")) {
-      clearAllData()
-      showNotification("success", "Toutes les données ont été supprimées")
+    if (file) {
+      setCompanyInfo((prev) => ({ ...prev, logo: file }))
     }
   }
-
-  const totalSales = Object.values(monthlyData).reduce((total, month) => total + (month.salesData?.length || 0), 0)
-  const totalRevenue = Object.values(monthlyData).reduce(
-    (total, month) =>
-      total + (month.salesData?.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0) || 0),
-    0,
-  )
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden bg-white">
-        <CardHeader className="flex flex-row items-center justify-between border-b">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-black">
-              <Settings className="h-5 w-5" />
-              Paramètres
-            </CardTitle>
-            <CardDescription className="text-black font-medium">
-              Configurez votre application et gérez vos données
-            </CardDescription>
-          </div>
-          <Button variant="outline" onClick={onClose} className="text-black bg-transparent">
-            Fermer
-          </Button>
-        </CardHeader>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-black">Paramètres</h1>
+        <p className="text-gray-600">Configurez votre application et vos préférences</p>
+      </div>
 
-        <CardContent className="p-0 overflow-y-auto">
-          {showAlert && (
-            <Alert
-              className={`m-6 ${alertType === "success" ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}`}
-            >
-              {alertType === "success" ? (
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-              )}
-              <AlertDescription className="text-black font-medium">{alertMessage}</AlertDescription>
-            </Alert>
-          )}
+      <Tabs defaultValue="appearance" className="space-y-6">
+        <TabsList className="grid grid-cols-6 bg-slate-100 rounded-2xl p-2 h-auto">
+          <TabsTrigger
+            value="appearance"
+            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-black"
+          >
+            <Palette className="h-4 w-4 mr-2" />
+            Apparence
+          </TabsTrigger>
+          <TabsTrigger
+            value="general"
+            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-black"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Général
+          </TabsTrigger>
+          <TabsTrigger
+            value="users"
+            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-black"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Utilisateurs
+          </TabsTrigger>
+          <TabsTrigger
+            value="data"
+            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-black"
+          >
+            <Database className="h-4 w-4 mr-2" />
+            Données
+          </TabsTrigger>
+          <TabsTrigger
+            value="security"
+            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-black"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Sécurité
+          </TabsTrigger>
+          <TabsTrigger
+            value="integrations"
+            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-black"
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Intégrations
+          </TabsTrigger>
+        </TabsList>
 
-          <Tabs defaultValue="appearance" className="tabs-modern">
-            <TabsList className="tabs-list-modern grid w-full grid-cols-6 m-6 mb-0">
-              <TabsTrigger value="appearance" className="tabs-trigger-modern">
-                <Palette className="h-4 w-4 mr-2" />
-                Apparence
-              </TabsTrigger>
-              <TabsTrigger value="general" className="tabs-trigger-modern">
-                <Settings className="h-4 w-4 mr-2" />
-                Général
-              </TabsTrigger>
-              <TabsTrigger value="users" className="tabs-trigger-modern">
-                <Users className="h-4 w-4 mr-2" />
-                Utilisateurs
-              </TabsTrigger>
-              <TabsTrigger value="data" className="tabs-trigger-modern">
-                <Database className="h-4 w-4 mr-2" />
-                Données
-              </TabsTrigger>
-              <TabsTrigger value="security" className="tabs-trigger-modern">
-                <Shield className="h-4 w-4 mr-2" />
-                Sécurité
-              </TabsTrigger>
-              <TabsTrigger value="integrations" className="tabs-trigger-modern">
-                <Zap className="h-4 w-4 mr-2" />
-                Intégrations
-              </TabsTrigger>
-            </TabsList>
-
-            <div className="p-6">
-              <TabsContent value="appearance" className="tabs-content-modern space-y-6">
-                <Card className="bg-white border-slate-200">
-                  <CardHeader>
-                    <CardTitle className="text-black">Personnalisation de l'interface</CardTitle>
-                    <CardDescription className="text-black font-medium">
-                      Configurez l'apparence de votre application
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="company-name" className="text-black font-semibold">
-                          Nom de l'entreprise
-                        </Label>
-                        <Input
-                          id="company-name"
-                          value={localSettings.companyName}
-                          onChange={(e) => setLocalSettings({ ...localSettings, companyName: e.target.value })}
-                          className="text-black"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="logo-url" className="text-black font-semibold">
-                          URL du logo
-                        </Label>
-                        <Input
-                          id="logo-url"
-                          value={localSettings.logoUrl || ""}
-                          onChange={(e) => setLocalSettings({ ...localSettings, logoUrl: e.target.value })}
-                          placeholder="https://exemple.com/logo.png"
-                          className="text-black"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="company-address" className="text-black font-semibold">
-                        Adresse
-                      </Label>
-                      <Input
-                        id="company-address"
-                        value={localSettings.companyAddress || ""}
-                        onChange={(e) => setLocalSettings({ ...localSettings, companyAddress: e.target.value })}
-                        className="text-black"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="company-phone" className="text-black font-semibold">
-                          Téléphone
-                        </Label>
-                        <Input
-                          id="company-phone"
-                          value={localSettings.companyPhone || ""}
-                          onChange={(e) => setLocalSettings({ ...localSettings, companyPhone: e.target.value })}
-                          className="text-black"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="company-email" className="text-black font-semibold">
-                          Email
-                        </Label>
-                        <Input
-                          id="company-email"
-                          type="email"
-                          value={localSettings.companyEmail || ""}
-                          onChange={(e) => setLocalSettings({ ...localSettings, companyEmail: e.target.value })}
-                          className="text-black"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="general" className="tabs-content-modern space-y-6">
-                <Card className="bg-white border-slate-200">
-                  <CardHeader>
-                    <CardTitle className="text-black">Paramètres généraux</CardTitle>
-                    <CardDescription className="text-black font-medium">
-                      Configuration de base de l'application
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="commission-rate" className="text-black font-semibold">
-                          Taux de commission par défaut (%)
-                        </Label>
-                        <Input
-                          id="commission-rate"
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={localSettings.commissionRate}
-                          onChange={(e) =>
-                            setLocalSettings({
-                              ...localSettings,
-                              commissionRate: Number.parseFloat(e.target.value) || 0,
-                            })
-                          }
-                          className="text-black"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="currency" className="text-black font-semibold">
-                          Devise
-                        </Label>
-                        <Input
-                          id="currency"
-                          value={localSettings.currency}
-                          onChange={(e) => setLocalSettings({ ...localSettings, currency: e.target.value })}
-                          className="text-black"
-                        />
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-black font-semibold">Notifications</Label>
-                          <p className="text-sm text-black">
-                            Recevoir des notifications pour les événements importants
-                          </p>
-                        </div>
-                        <Switch
-                          checked={localSettings.notifications}
-                          onCheckedChange={(checked) => setLocalSettings({ ...localSettings, notifications: checked })}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-black font-semibold">Sauvegarde automatique</Label>
-                          <p className="text-sm text-black">Sauvegarder automatiquement les données</p>
-                        </div>
-                        <Switch
-                          checked={localSettings.autoBackup}
-                          onCheckedChange={(checked) => setLocalSettings({ ...localSettings, autoBackup: checked })}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="users" className="tabs-content-modern">
-                <UserManagement />
-              </TabsContent>
-
-              <TabsContent value="data" className="tabs-content-modern space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <Card className="bg-blue-50 border-blue-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-black">Créateurs</span>
-                      </div>
-                      <div className="text-2xl font-bold text-black mt-2">{creators.length}</div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-green-50 border-green-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Database className="h-4 w-4 text-green-600" />
-                        <span className="text-sm font-medium text-black">Articles en stock</span>
-                      </div>
-                      <div className="text-2xl font-bold text-black mt-2">{stockData.length}</div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-purple-50 border-purple-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Badge className="h-4 w-4 text-purple-600" />
-                        <span className="text-sm font-medium text-black">Ventes totales</span>
-                      </div>
-                      <div className="text-2xl font-bold text-black mt-2">{totalSales}</div>
-                    </CardContent>
-                  </Card>
+        <TabsContent value="appearance" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-black">Thème et apparence</CardTitle>
+              <CardDescription className="text-black">Personnalisez l'apparence de votre interface</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-black">Mode sombre</Label>
+                  <p className="text-sm text-gray-600">Activer le thème sombre</p>
                 </div>
+                <Switch
+                  checked={preferences.darkMode}
+                  onCheckedChange={(checked) => setPreferences((prev) => ({ ...prev, darkMode: checked }))}
+                />
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <Label className="text-black">Logo de l'entreprise</Label>
+                <div className="flex items-center gap-4">
+                  <Input type="file" accept="image/*" onChange={handleLogoUpload} className="text-black" />
+                  <Button variant="outline">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Télécharger
+                  </Button>
+                </div>
+                {companyInfo.logo && (
+                  <p className="text-sm text-green-600">Logo téléchargé : {companyInfo.logo.name}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                <Card className="bg-white border-slate-200">
-                  <CardHeader>
-                    <CardTitle className="text-black">Gestion des données</CardTitle>
-                    <CardDescription className="text-black font-medium">
-                      Exportez, importez ou supprimez vos données
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={exportData} variant="outline" className="text-black bg-transparent">
-                        <Download className="h-4 w-4 mr-2" />
-                        Exporter toutes les données
-                      </Button>
+        <TabsContent value="general" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-black">
+                <Building className="h-5 w-5" />
+                Informations de l'entreprise
+              </CardTitle>
+              <CardDescription className="text-black">Configurez les informations de votre entreprise</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companyName" className="text-black">
+                    Nom de l'entreprise
+                  </Label>
+                  <Input
+                    id="companyName"
+                    value={companyInfo.name}
+                    onChange={(e) => setCompanyInfo((prev) => ({ ...prev, name: e.target.value }))}
+                    className="text-black"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-black">
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={companyInfo.email}
+                      onChange={(e) => setCompanyInfo((prev) => ({ ...prev, email: e.target.value }))}
+                      className="pl-10 text-black"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-black">
+                    Téléphone
+                  </Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="phone"
+                      value={companyInfo.phone}
+                      onChange={(e) => setCompanyInfo((prev) => ({ ...prev, phone: e.target.value }))}
+                      className="pl-10 text-black"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="website" className="text-black">
+                    Site web
+                  </Label>
+                  <Input
+                    id="website"
+                    value={companyInfo.website}
+                    onChange={(e) => setCompanyInfo((prev) => ({ ...prev, website: e.target.value }))}
+                    className="text-black"
+                  />
+                </div>
+              </div>
 
-                      <Button
-                        variant="outline"
-                        className="text-black bg-transparent"
-                        onClick={() => document.getElementById("import-file")?.click()}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Importer des données
-                      </Button>
-                      <input id="import-file" type="file" accept=".json" onChange={importData} className="hidden" />
+              <Separator />
 
-                      <Button onClick={clearData} variant="destructive">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Supprimer toutes les données
-                      </Button>
-                    </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                  <Label className="text-black">Adresse</Label>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2 space-y-2">
+                    <Input
+                      placeholder="Adresse"
+                      value={companyInfo.address}
+                      onChange={(e) => setCompanyInfo((prev) => ({ ...prev, address: e.target.value }))}
+                      className="text-black"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Code postal"
+                      value={companyInfo.postalCode}
+                      onChange={(e) => setCompanyInfo((prev) => ({ ...prev, postalCode: e.target.value }))}
+                      className="text-black"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Ville"
+                      value={companyInfo.city}
+                      onChange={(e) => setCompanyInfo((prev) => ({ ...prev, city: e.target.value }))}
+                      className="text-black"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                    <Alert className="bg-amber-50 border-amber-200">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      <AlertDescription className="text-black font-medium">
-                        <strong>Attention :</strong> La suppression des données est irréversible. Assurez-vous d'avoir
-                        une sauvegarde avant de procéder.
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-black">Préférences</CardTitle>
+              <CardDescription className="text-black">Configurez vos préférences d'utilisation</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-black">Notifications</Label>
+                  <p className="text-sm text-gray-600">Recevoir des notifications</p>
+                </div>
+                <Switch
+                  checked={preferences.notifications}
+                  onCheckedChange={(checked) => setPreferences((prev) => ({ ...prev, notifications: checked }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-black">Sauvegarde automatique</Label>
+                  <p className="text-sm text-gray-600">Sauvegarder automatiquement les modifications</p>
+                </div>
+                <Switch
+                  checked={preferences.autoSave}
+                  onCheckedChange={(checked) => setPreferences((prev) => ({ ...prev, autoSave: checked }))}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <TabsContent value="security" className="tabs-content-modern space-y-6">
-                <Card className="bg-white border-slate-200">
-                  <CardHeader>
-                    <CardTitle className="text-black">Paramètres de sécurité</CardTitle>
-                    <CardDescription className="text-black font-medium">
-                      Configurez les options de sécurité de votre application
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Alert className="bg-green-50 border-green-200">
-                      <Shield className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-black font-medium">
-                        <strong>Sécurité activée :</strong> Toutes les données sont stockées localement et chiffrées.
-                      </AlertDescription>
-                    </Alert>
+        <TabsContent value="users" className="space-y-6">
+          <UserManagement />
+        </TabsContent>
 
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-black font-semibold">Chiffrement des données</Label>
-                          <p className="text-sm text-black">Chiffrer les données sensibles</p>
-                        </div>
-                        <Switch checked={true} disabled />
-                      </div>
+        <TabsContent value="data" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-black">Gestion des données</CardTitle>
+              <CardDescription className="text-black">Importez, exportez et gérez vos données</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button variant="outline" className="h-20 flex-col gap-2 bg-transparent">
+                  <Database className="h-6 w-6" />
+                  <span className="text-black">Exporter les données</span>
+                </Button>
+                <Button variant="outline" className="h-20 flex-col gap-2 bg-transparent">
+                  <Upload className="h-6 w-6" />
+                  <span className="text-black">Importer des données</span>
+                </Button>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <Label className="text-black">Sauvegarde automatique</Label>
+                <p className="text-sm text-gray-600">Les données sont sauvegardées automatiquement toutes les heures</p>
+                <Badge variant="secondary">Dernière sauvegarde : Il y a 23 minutes</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-black font-semibold">Authentification requise</Label>
-                          <p className="text-sm text-black">
-                            Demander une authentification pour accéder à l'application
-                          </p>
-                        </div>
-                        <Switch checked={true} disabled />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+        <TabsContent value="security" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-black">Sécurité</CardTitle>
+              <CardDescription className="text-black">Configurez les paramètres de sécurité</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-black">Durée de session</Label>
+                  <p className="text-sm text-gray-600">8 heures</p>
+                </div>
+                <Separator />
+                <div>
+                  <Label className="text-black">Authentification à deux facteurs</Label>
+                  <p className="text-sm text-gray-600">Non configurée</p>
+                  <Button variant="outline" className="mt-2 bg-transparent">
+                    Configurer 2FA
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <TabsContent value="integrations" className="tabs-content-modern">
-                <SumUpIntegration />
-              </TabsContent>
-            </div>
-          </Tabs>
-
-          <div className="flex justify-end gap-2 p-6 border-t bg-slate-50">
-            <Button onClick={handleReset} variant="outline" className="text-black bg-transparent">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Réinitialiser
-            </Button>
-            <Button onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
-              Sauvegarder
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="integrations" className="space-y-6">
+          <SumUpIntegration />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

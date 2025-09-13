@@ -2,32 +2,36 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const { code, clientId, clientSecret } = await request.json()
 
-    // Appel à l'API SumUp pour échanger le code contre un token
-    const response = await fetch("https://api.sumup.com/token", {
+    // Échanger le code d'autorisation contre un token d'accès
+    const tokenResponse = await fetch("https://api.sumup.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        grant_type: body.grant_type,
-        client_id: body.client_id,
-        client_secret: body.client_secret,
-        code: body.code,
-        redirect_uri: body.redirect_uri,
+        grant_type: "authorization_code",
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
       }),
     })
 
-    if (!response.ok) {
+    if (!tokenResponse.ok) {
       throw new Error("Erreur lors de l'échange du token")
     }
 
-    const tokenData = await response.json()
+    const tokenData = await tokenResponse.json()
 
-    return NextResponse.json(tokenData)
+    return NextResponse.json({
+      success: true,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresIn: tokenData.expires_in,
+    })
   } catch (error) {
-    console.error("Erreur API token:", error)
-    return NextResponse.json({ error: "Erreur lors de l'authentification" }, { status: 500 })
+    console.error("Erreur token SumUp:", error)
+    return NextResponse.json({ success: false, error: "Erreur lors de l'authentification" }, { status: 500 })
   }
 }
