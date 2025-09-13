@@ -4,180 +4,115 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 interface User {
-  id: string
   username: string
-  role: "admin" | "user"
-  createdAt: string
-  lastLogin?: string
+  password: string
+  displayName: string
 }
 
 interface AuthState {
-  user: User | null
   isAuthenticated: boolean
+  user: User | null
   sessionExpiry: number | null
-
-  // Actions
-  login: (username: string, password: string) => Promise<boolean>
+  login: (username: string, password: string) => boolean
   logout: () => void
-  checkSession: () => boolean
-  updatePassword: (currentPassword: string, newPassword: string) => Promise<boolean>
-  updateUsername: (newUsername: string) => void
+  updateUser: (updates: Partial<Pick<User, "displayName" | "password">>) => void
+  isSessionValid: () => boolean
+  extendSession: () => void
 }
 
-// Durée de session : 8 heures
-const SESSION_DURATION = 8 * 60 * 60 * 1000
-
-// Utilisateurs par défaut - MODIFIEZ LE MOT DE PASSE ICI
-const DEFAULT_USERS = [
+const DEFAULT_USERS: User[] = [
   {
-    id: "admin",
     username: "admin",
-    password: "VotreNouveauMotDePasse2024!", // ← NOUVEAU MOT DE PASSE SÉCURISÉ
-    role: "admin" as const,
+    password: "VotreNouveauMotDePasse2024!",
+    displayName: "Administrateur",
   },
 ]
+
+const SESSION_DURATION = 8 * 60 * 60 * 1000 // 8 heures en millisecondes
 
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
-      user: null,
       isAuthenticated: false,
+      user: null,
       sessionExpiry: null,
 
-      login: async (username: string, password: string): Promise<boolean> => {
-        console.log("Tentative de connexion:", { username, password })
+      login: (username: string, password: string) => {
+        console.log("🔐 Tentative de connexion:", { username, password })
 
-        // Simuler un délai de connexion
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        const user = DEFAULT_USERS.find((u) => u.username === username && u.password === password)
 
-        // Vérifier les identifiants - DÉBOGAGE AJOUTÉ
-        const user = DEFAULT_USERS.find((u) => {
-          console.log("Comparaison:", {
-            userDb: u.username,
-            userInput: username,
-            passDb: u.password,
-            passInput: password,
-            usernameMatch: u.username === username,
-            passwordMatch: u.password === password,
+        console.log("👤 Utilisateur trouvé:", user ? "Oui" : "Non")
+
+        if (user) {
+          const expiry = Date.now() + SESSION_DURATION
+          set({
+            isAuthenticated: true,
+            user,
+            sessionExpiry: expiry,
           })
-          return u.username === username && u.password === password
-        })
-
-        console.log("Utilisateur trouvé:", user)
-
-        if (!user) {
-          console.log("Échec de connexion - utilisateur non trouvé")
-          return false
+          console.log("✅ Connexion réussie, session expire à:", new Date(expiry))
+          return true
         }
 
-        const now = Date.now()
-        const sessionExpiry = now + SESSION_DURATION
-
-        const authenticatedUser: User = {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-        }
-
-        console.log("Connexion réussie:", authenticatedUser)
-
-        set({
-          user: authenticatedUser,
-          isAuthenticated: true,
-          sessionExpiry,
-        })
-
-        return true
+        console.log("❌ Échec de la connexion")
+        return false
       },
 
       logout: () => {
-        console.log("Déconnexion")
+        console.log("🚪 Déconnexion")
         set({
-          user: null,
           isAuthenticated: false,
+          user: null,
           sessionExpiry: null,
         })
       },
 
-      checkSession: (): boolean => {
+      updateUser: (updates) => {
+        const currentUser = get().user
+        if (currentUser) {
+          const updatedUser = { ...currentUser, ...updates }
+          set({ user: updatedUser })
+
+          // Mettre à jour dans DEFAULT_USERS pour la persistance
+          const userIndex = DEFAULT_USERS.findIndex((u) => u.username === currentUser.username)
+          if (userIndex !== -1) {
+            DEFAULT_USERS[userIndex] = updatedUser
+          }
+        }
+      },
+
+      isSessionValid: () => {
         const { sessionExpiry, isAuthenticated } = get()
-
         if (!isAuthenticated || !sessionExpiry) {
-          console.log("Session invalide - pas authentifié ou pas d'expiration")
           return false
         }
 
-        if (Date.now() > sessionExpiry) {
-          console.log("Session expirée")
-          // Session expirée
+        const isValid = Date.now() < sessionExpiry
+        if (!isValid) {
+          console.log("⏰ Session expirée")
           get().logout()
-          return false
         }
 
-        console.log("Session valide")
-        return true
+        return isValid
       },
 
-      updatePassword: async (currentPassword: string, newPassword: string): Promise<boolean> => {
-        const { user } = get()
-        if (!user) return false
-
-        // Vérifier le mot de passe actuel
-        const currentUser = DEFAULT_USERS.find((u) => u.username === user.username)
-        if (!currentUser || currentUser.password !== currentPassword) {
-          return false
+      extendSession: () => {
+        const { isAuthenticated } = get()
+        if (isAuthenticated) {
+          const newExpiry = Date.now() + SESSION_DURATION
+          set({ sessionExpiry: newExpiry })
+          console.log("🔄 Session prolongée jusqu'à:", new Date(newExpiry))
         }
-
-        // Mettre à jour le mot de passe dans DEFAULT_USERS
-        const userIndex = DEFAULT_USERS.findIndex((u) => u.username === user.username)
-        if (userIndex !== -1) {
-          DEFAULT_USERS[userIndex].password = newPassword
-        }
-
-        console.log(`Mot de passe mis à jour pour ${user.username}`)
-        return true
-      },
-
-      updateUsername: (newUsername: string) => {
-        const { user } = get()
-        if (!user) return
-
-        // Mettre à jour le nom d'utilisateur dans DEFAULT_USERS
-        const userIndex = DEFAULT_USERS.findIndex((u) => u.username === user.username)
-        if (userIndex !== -1) {
-          DEFAULT_USERS[userIndex].username = newUsername
-        }
-
-        set({
-          user: {
-            ...user,
-            username: newUsername,
-          },
-        })
       },
     }),
     {
       name: "auth-storage",
       partialize: (state) => ({
-        user: state.user,
         isAuthenticated: state.isAuthenticated,
+        user: state.user,
         sessionExpiry: state.sessionExpiry,
       }),
     },
   ),
 )
-
-// Hook pour vérifier l'authentification
-export const useAuthGuard = () => {
-  const { isAuthenticated, checkSession, logout } = useAuth()
-
-  const isValidSession = checkSession()
-
-  if (isAuthenticated && !isValidSession) {
-    logout()
-  }
-
-  return isValidSession
-}
