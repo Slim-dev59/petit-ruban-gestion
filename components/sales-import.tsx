@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Calendar } from "lucide-react"
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Calendar, X, Trash2 } from "lucide-react"
 import { useStore } from "@/lib/store"
 
 interface PendingSale {
@@ -39,7 +39,8 @@ interface PendingSale {
   confidence: number
   matchedItem?: string
   commission: number
-  month: string // Nouveau champ pour le mois
+  month: string
+  isAssigned: boolean
 }
 
 export function SalesImport() {
@@ -52,12 +53,52 @@ export function SalesImport() {
   const [showNewCreatorDialog, setShowNewCreatorDialog] = useState(false)
   const [newCreatorName, setNewCreatorName] = useState("")
 
-  const { creators, stockData, importSalesData, addCreator, settings } = useStore()
+  const {
+    creators,
+    stockData,
+    importSalesData,
+    addCreator,
+    settings,
+    getPendingSales,
+    addPendingSales,
+    updatePendingSale,
+    removePendingSale,
+    clearPendingSales,
+    currentMonth,
+  } = useStore()
+
+  // Charger les ventes en attente au montage du composant
+  useEffect(() => {
+    const existingPendingSales = getPendingSales()
+    if (existingPendingSales.length > 0) {
+      // Convertir les PendingSale du store vers le format local
+      const convertedSales: PendingSale[] = existingPendingSales.map((sale, index) => ({
+        index: index,
+        date: sale.date,
+        type: "Vente",
+        reference: `REF-${index}`,
+        paymentMethod: sale.paiement,
+        quantity: sale.quantity || "1",
+        description: sale.description,
+        currency: "EUR",
+        priceBeforeDiscount: sale.prix,
+        discount: "0",
+        finalPrice: sale.prix,
+        suggestedCreator: sale.suggestedCreator || "Non identifié",
+        needsValidation: sale.needsValidation,
+        confidence: sale.confidence || 0,
+        matchedItem: sale.matchedItem,
+        commission: Number.parseFloat(sale.commission || "0"),
+        month: sale.month,
+        isAssigned: sale.suggestedCreator !== "Non identifié" && sale.suggestedCreator !== undefined,
+      }))
+      setPendingSales(convertedSales)
+    }
+  }, [])
 
   // Fonction pour parser la date française
   const parseDate = (dateStr: string): { date: Date; month: string } => {
     try {
-      // Format: "12 sept. 2025 09:37"
       const months = {
         janv: "01",
         févr: "02",
@@ -91,39 +132,92 @@ export function SalesImport() {
     }
   }
 
-  // Fonction pour trouver le créateur basé sur le stock
+  // Fonction améliorée pour trouver le créateur basé sur le stock
   const findCreatorFromStock = (description: string): { creator: string; confidence: number; matchedItem?: string } => {
     const descLower = description.toLowerCase().trim()
+    console.log(`🔍 Recherche pour: "${description}"`)
 
-    console.log(`Recherche pour: "${description}"`)
-
-    // Chercher une correspondance exacte dans le stock
+    // 1. Recherche exacte dans les variations (articles) avec vérification du créateur
     for (const item of stockData) {
-      const itemNameLower = item.article.toLowerCase().trim()
+      const articleLower = item.article.toLowerCase().trim()
+      const createurLower = item.createur.toLowerCase().trim()
 
-      // Correspondance exacte
-      if (descLower === itemNameLower) {
-        console.log(`Match exact trouvé: ${item.article} -> ${item.createur}`)
+      // Correspondance exacte de l'article
+      if (descLower === articleLower) {
+        console.log(`✅ Match exact article: "${item.article}" -> ${item.createur}`)
         return { creator: item.createur, confidence: 1.0, matchedItem: item.article }
       }
 
-      // Correspondance partielle (contient)
-      if (descLower.includes(itemNameLower) || itemNameLower.includes(descLower)) {
-        console.log(`Match partiel trouvé: ${item.article} -> ${item.createur}`)
-        return { creator: item.createur, confidence: 0.8, matchedItem: item.article }
+      // Vérifier si la description contient le nom du créateur ET l'article
+      if (descLower.includes(createurLower) && descLower.includes(articleLower)) {
+        console.log(`✅ Match créateur + article: "${item.createur}" + "${item.article}"`)
+        return { creator: item.createur, confidence: 0.95, matchedItem: `${item.createur} - ${item.article}` }
       }
     }
 
-    // Si aucune correspondance dans le stock, essayer avec les créateurs existants
-    for (const creator of creators) {
-      const creatorLower = creator.toLowerCase()
-      if (descLower.includes(creatorLower)) {
-        console.log(`Match créateur trouvé: ${creator}`)
-        return { creator, confidence: 0.6 }
+    // 2. Recherche par créateur spécifique dans la description
+    for (const item of stockData) {
+      const createurLower = item.createur.toLowerCase().trim()
+
+      // Vérifier si la description commence par le nom du créateur
+      if (descLower.startsWith(createurLower)) {
+        console.log(`✅ Match début créateur: "${item.createur}" au début de "${description}"`)
+        return { creator: item.createur, confidence: 0.9, matchedItem: `Créateur: ${item.createur}` }
+      }
+
+      // Vérifier si le nom du créateur est dans la description (avec espaces)
+      if (descLower.includes(` ${createurLower} `) || descLower.includes(`${createurLower} `)) {
+        console.log(`✅ Match créateur isolé: "${item.createur}" dans "${description}"`)
+        return { creator: item.createur, confidence: 0.85, matchedItem: `Créateur: ${item.createur}` }
       }
     }
 
-    console.log(`Aucun match trouvé pour: ${description}`)
+    // 3. Recherche partielle dans les articles avec vérification stricte
+    for (const item of stockData) {
+      const articleLower = item.article.toLowerCase().trim()
+      const createurLower = item.createur.toLowerCase().trim()
+
+      // Éviter les correspondances trop courtes ou ambiguës
+      if (articleLower.length > 4) {
+        if (descLower.includes(articleLower)) {
+          // Vérifier que ce n'est pas un autre créateur qui contient cet article
+          const otherCreatorMatch = stockData.find(
+            (otherItem) =>
+              otherItem.createur !== item.createur && otherItem.article.toLowerCase().includes(articleLower),
+          )
+
+          if (!otherCreatorMatch) {
+            console.log(`🔍 Match partiel article unique: "${item.article}" -> ${item.createur}`)
+            return { creator: item.createur, confidence: 0.75, matchedItem: item.article }
+          }
+        }
+      }
+    }
+
+    // 4. Recherche par mots-clés spécifiques (éviter les mots trop génériques)
+    const descWords = descLower.split(" ").filter((word) => word.length > 3)
+    const genericWords = ["bijou", "collier", "bracelet", "bague", "boucle", "pendentif", "creation", "fait", "main"]
+
+    for (const word of descWords) {
+      if (!genericWords.includes(word)) {
+        for (const item of stockData) {
+          const articleLower = item.article.toLowerCase().trim()
+          const createurLower = item.createur.toLowerCase().trim()
+
+          if (articleLower.includes(word) && articleLower.length > word.length + 2) {
+            console.log(`🔍 Match mot-clé spécifique "${word}" dans "${item.article}" -> ${item.createur}`)
+            return { creator: item.createur, confidence: 0.6, matchedItem: item.article }
+          }
+
+          if (createurLower.includes(word) && createurLower.length > word.length + 1) {
+            console.log(`🔍 Match mot-clé créateur "${word}" dans "${item.createur}"`)
+            return { creator: item.createur, confidence: 0.65, matchedItem: `Créateur: ${item.createur}` }
+          }
+        }
+      }
+    }
+
+    console.log(`❌ Aucun match trouvé pour: "${description}"`)
     return { creator: "Non identifié", confidence: 0 }
   }
 
@@ -141,12 +235,9 @@ export function SalesImport() {
     const lines = text.split("\n")
     const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
 
-    console.log("Headers du fichier de ventes:", headers)
-
     return lines
       .slice(1)
       .map((line) => {
-        // Parsing CSV amélioré
         const values: string[] = []
         let current = ""
         let inQuotes = false
@@ -198,7 +289,7 @@ export function SalesImport() {
 
       // Analyser chaque vente
       const pending: PendingSale[] = salesData
-        .filter((row) => row["Type"] === "Vente") // Filtrer uniquement les ventes
+        .filter((row) => row["Type"] === "Vente")
         .map((row, index) => {
           const dateStr = row["Date"] || ""
           const { date, month } = parseDate(dateStr)
@@ -216,10 +307,11 @@ export function SalesImport() {
           const commission = calculateCommission(price, paymentMethod)
 
           const { creator, confidence, matchedItem } = findCreatorFromStock(description)
-          const needsValidation = confidence < 0.8 || creator === "Non identifié"
+          const isAssigned = creator !== "Non identifié"
+          const needsValidation = !isAssigned || confidence < 0.8
 
           return {
-            index,
+            index: pendingSales.length + index,
             date: date.toISOString(),
             type,
             reference,
@@ -236,20 +328,45 @@ export function SalesImport() {
             matchedItem,
             commission,
             month,
+            isAssigned,
           }
         })
 
-      setPendingSales(pending)
+      // Ajouter aux ventes existantes
+      const allPendingSales = [...pendingSales, ...pending]
+      setPendingSales(allPendingSales)
+
+      // Sauvegarder dans le store
+      const pendingSalesToStore = pending.map((sale) => ({
+        id: `pending_${Date.now()}_${sale.index}`,
+        date: sale.date,
+        description: sale.description,
+        prix: sale.finalPrice,
+        paiement: sale.paymentMethod,
+        quantity: sale.quantity,
+        commission: sale.commission.toString(),
+        month: sale.month,
+        suggestedCreator: sale.suggestedCreator,
+        confidence: sale.confidence,
+        matchedItem: sale.matchedItem,
+        needsValidation: sale.needsValidation,
+      }))
+
+      addPendingSales(pendingSalesToStore)
 
       // Statistiques
-      const needsValidationCount = pending.filter((sale) => sale.needsValidation).length
-      const autoAssignedCount = pending.length - needsValidationCount
-      const unknownCount = pending.filter((sale) => sale.suggestedCreator === "Non identifié").length
+      const assignedSales = pending.filter((sale) => sale.isAssigned)
+      const unassignedSales = pending.filter((sale) => !sale.isAssigned)
+      const highConfidenceSales = assignedSales.filter((sale) => sale.confidence >= 0.8)
+      const lowConfidenceSales = assignedSales.filter((sale) => sale.confidence < 0.8)
       const monthsFound = [...new Set(pending.map((sale) => sale.month))].sort()
 
       setImportStatus({
-        type: needsValidationCount > 0 ? "warning" : "success",
-        message: `${pending.length} ventes analysées sur ${monthsFound.length} mois (${monthsFound.join(", ")}). ${autoAssignedCount} assignées automatiquement, ${needsValidationCount} nécessitent une validation. ${unknownCount} non identifiées.`,
+        type: unassignedSales.length > 0 || lowConfidenceSales.length > 0 ? "warning" : "success",
+        message: `${pending.length} nouvelles ventes analysées sur ${monthsFound.length} mois (${monthsFound.join(", ")}). 
+        ✅ ${highConfidenceSales.length} assignées automatiquement, 
+        ⚠️ ${lowConfidenceSales.length} à valider, 
+        ❌ ${unassignedSales.length} non identifiées.`,
       })
     } catch (error) {
       console.error("Erreur lors de l'import:", error)
@@ -264,10 +381,36 @@ export function SalesImport() {
 
   const updateCreatorAssignment = (index: number, creator: string) => {
     setPendingSales((prev) =>
-      prev.map((sale) =>
-        sale.index === index ? { ...sale, suggestedCreator: creator, needsValidation: false } : sale,
-      ),
+      prev.map((sale) => {
+        if (sale.index === index) {
+          const isAssigned = creator !== "Non identifié"
+          const updatedSale = {
+            ...sale,
+            suggestedCreator: creator,
+            needsValidation: !isAssigned,
+            isAssigned,
+          }
+
+          // Mettre à jour dans le store
+          const storeId = `pending_${Date.now()}_${index}`
+          updatePendingSale(storeId, {
+            suggestedCreator: creator,
+            needsValidation: !isAssigned,
+          })
+
+          return updatedSale
+        }
+        return sale
+      }),
     )
+  }
+
+  const removeUnassignedSale = (index: number) => {
+    setPendingSales((prev) => prev.filter((sale) => sale.index !== index))
+
+    // Supprimer du store
+    const storeId = `pending_${Date.now()}_${index}`
+    removePendingSale(storeId)
   }
 
   const handleCreateNewCreator = () => {
@@ -279,7 +422,8 @@ export function SalesImport() {
   }
 
   const confirmImport = () => {
-    const validSales = pendingSales.filter((sale) => sale.suggestedCreator !== "Non identifié")
+    // Importer uniquement les ventes assignées
+    const validSales = pendingSales.filter((sale) => sale.isAssigned)
 
     // Grouper par mois
     const salesByMonth = validSales.reduce(
@@ -305,55 +449,121 @@ export function SalesImport() {
       importSalesData(sales, month)
     })
 
-    setPendingSales([])
+    // Garder uniquement les ventes non assignées
+    const remainingSales = pendingSales.filter((sale) => !sale.isAssigned)
+    setPendingSales(remainingSales)
+
+    // Nettoyer le store et remettre seulement les non assignées
+    clearPendingSales()
+    if (remainingSales.length > 0) {
+      const remainingToStore = remainingSales.map((sale) => ({
+        id: `pending_${Date.now()}_${sale.index}`,
+        date: sale.date,
+        description: sale.description,
+        prix: sale.finalPrice,
+        paiement: sale.paymentMethod,
+        quantity: sale.quantity,
+        commission: sale.commission.toString(),
+        month: sale.month,
+        suggestedCreator: sale.suggestedCreator,
+        confidence: sale.confidence,
+        matchedItem: sale.matchedItem,
+        needsValidation: sale.needsValidation,
+      }))
+      addPendingSales(remainingToStore)
+    }
+
     setImportStatus({
       type: "success",
-      message: `${validSales.length} ventes importées avec succès dans ${Object.keys(salesByMonth).length} mois !`,
+      message: `${validSales.length} ventes importées avec succès dans ${Object.keys(salesByMonth).length} mois ! ${remainingSales.length} ventes non assignées restent en attente.`,
     })
   }
 
+  const clearAllPendingSales = () => {
+    if (confirm("Êtes-vous sûr de vouloir supprimer toutes les ventes en attente ?")) {
+      setPendingSales([])
+      clearPendingSales()
+      setImportStatus({
+        type: "success",
+        message: "Toutes les ventes en attente ont été supprimées.",
+      })
+    }
+  }
+
+  // Calculer le nombre de ventes à valider
+  const salesToValidate = pendingSales.filter((sale) => sale.isAssigned && sale.needsValidation).length
+  const unassignedSales = pendingSales.filter((sale) => !sale.isAssigned).length
+
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="bg-white border-slate-200 shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-slate-900">
             <Upload className="h-5 w-5" />
             Import des ventes
+            {(salesToValidate > 0 || unassignedSales > 0) && (
+              <div className="flex gap-2">
+                {salesToValidate > 0 && (
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                    {salesToValidate} à valider
+                  </Badge>
+                )}
+                {unassignedSales > 0 && <Badge variant="destructive">{unassignedSales} non assignées</Badge>}
+              </div>
+            )}
           </CardTitle>
-          <CardDescription>
-            Les ventes seront automatiquement attribuées aux créateurs basé sur le stock importé. Commission de{" "}
-            {settings.commissionRate}% appliquée sur les paiements non-espèces.
+          <CardDescription className="text-slate-600 font-medium">
+            Recherche améliorée : priorité aux correspondances créateur + article, puis créateur seul, puis article
+            seul. Commission de {settings.commissionRate}% appliquée sur les paiements non-espèces.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="sales-file">Fichier de ventes (CSV)</Label>
+            <Label htmlFor="sales-file" className="text-slate-900 font-semibold">
+              Fichier de ventes (CSV)
+            </Label>
             <div className="flex items-center gap-2">
-              <Input id="sales-file" type="file" accept=".csv" onChange={handleFileChange} />
+              <Input id="sales-file" type="file" accept=".csv" onChange={handleFileChange} className="text-slate-900" />
               {salesFile && <CheckCircle className="h-4 w-4 text-green-500" />}
             </div>
           </div>
 
-          <Button
-            onClick={handleImport}
-            disabled={!salesFile || importing || stockData.length === 0}
-            className="w-full"
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            {importing ? "Analyse en cours..." : "Analyser les ventes"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleImport}
+              disabled={!salesFile || importing || stockData.length === 0}
+              className="flex-1"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {importing ? "Analyse en cours..." : "Analyser les ventes"}
+            </Button>
+
+            {pendingSales.length > 0 && (
+              <Button
+                onClick={clearAllPendingSales}
+                variant="outline"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 bg-transparent"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Vider la liste
+              </Button>
+            )}
+          </div>
 
           {stockData.length === 0 && (
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800 font-medium">
                 Veuillez d'abord importer le stock pour permettre l'attribution automatique.
               </AlertDescription>
             </Alert>
           )}
 
           {importStatus && (
-            <Alert variant={importStatus.type === "error" ? "destructive" : "default"}>
+            <Alert
+              variant={importStatus.type === "error" ? "destructive" : "default"}
+              className="bg-white border-slate-200"
+            >
               {importStatus.type === "error" ? (
                 <AlertCircle className="h-4 w-4" />
               ) : importStatus.type === "warning" ? (
@@ -361,68 +571,89 @@ export function SalesImport() {
               ) : (
                 <CheckCircle className="h-4 w-4" />
               )}
-              <AlertDescription>{importStatus.message}</AlertDescription>
+              <AlertDescription className="whitespace-pre-line text-slate-900 font-medium">
+                {importStatus.message}
+              </AlertDescription>
             </Alert>
           )}
         </CardContent>
       </Card>
 
       {pendingSales.length > 0 && (
-        <Card>
+        <Card className="bg-white border-slate-200 shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Validation des ventes</span>
-              <Button
-                onClick={confirmImport}
-                disabled={pendingSales.some((sale) => sale.suggestedCreator === "Non identifié")}
-              >
-                Confirmer l'import ({pendingSales.filter((sale) => sale.suggestedCreator !== "Non identifié").length}{" "}
-                ventes)
-              </Button>
+            <CardTitle className="flex items-center justify-between text-slate-900">
+              <span>Ventes en attente de validation ({pendingSales.length})</span>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowNewCreatorDialog(true)}
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  Nouveau créateur
+                </Button>
+                <Button onClick={confirmImport} disabled={pendingSales.filter((sale) => sale.isAssigned).length === 0}>
+                  Importer les ventes assignées ({pendingSales.filter((sale) => sale.isAssigned).length})
+                </Button>
+              </div>
             </CardTitle>
+            <CardDescription className="text-slate-600 font-medium">
+              Ces ventes sont sauvegardées et resteront disponibles même après changement d'onglet. Seules les ventes
+              assignées à un créateur seront importées.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Prix</TableHead>
-                  <TableHead>Paiement</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead>Créateur</TableHead>
-                  <TableHead>Match</TableHead>
-                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Date</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Description</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Prix</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Paiement</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Commission</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Créateur</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Match</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Statut</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pendingSales.map((sale) => (
-                  <TableRow key={sale.index} className={sale.needsValidation ? "bg-yellow-50" : ""}>
+                  <TableRow
+                    key={sale.index}
+                    className={!sale.isAssigned ? "bg-red-50" : sale.needsValidation ? "bg-yellow-50" : "bg-green-50"}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span className="text-xs">{new Date(sale.date).toLocaleDateString("fr-FR")}</span>
+                        <Calendar className="h-3 w-3 text-slate-600" />
+                        <span className="text-xs text-slate-900">
+                          {new Date(sale.date).toLocaleDateString("fr-FR")}
+                        </span>
                       </div>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs bg-white border-slate-200 text-slate-700">
                         {sale.month}
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-xs">
-                      <div className="font-medium truncate" title={sale.description}>
+                      <div className="font-medium truncate text-slate-900" title={sale.description}>
                         {sale.description}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{sale.finalPrice}€</TableCell>
+                    <TableCell className="font-medium text-slate-900">{sale.finalPrice}€</TableCell>
                     <TableCell>
-                      <Badge variant={sale.paymentMethod.toLowerCase().includes("espèce") ? "secondary" : "default"}>
+                      <Badge
+                        variant={sale.paymentMethod.toLowerCase().includes("espèce") ? "secondary" : "default"}
+                        className="bg-slate-100 text-slate-700 border-slate-200"
+                      >
                         {sale.paymentMethod}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       {sale.commission > 0 ? (
-                        <span className="text-red-600">-{sale.commission.toFixed(2)}€</span>
+                        <span className="text-red-600 font-medium">-{sale.commission.toFixed(2)}€</span>
                       ) : (
-                        <span className="text-green-600">0€</span>
+                        <span className="text-green-600 font-medium">0€</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -430,7 +661,7 @@ export function SalesImport() {
                         value={sale.suggestedCreator}
                         onValueChange={(value) => updateCreatorAssignment(sale.index, value)}
                       >
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-40 text-slate-900">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -445,29 +676,41 @@ export function SalesImport() {
                     </TableCell>
                     <TableCell>
                       {sale.matchedItem && (
-                        <Badge variant="outline" className="text-xs">
-                          {sale.matchedItem}
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-white border-slate-200 text-slate-700"
+                          title={sale.matchedItem}
+                        >
+                          {sale.matchedItem.length > 20 ? sale.matchedItem.substring(0, 20) + "..." : sale.matchedItem}
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      {sale.suggestedCreator === "Non identifié" ? (
+                      {!sale.isAssigned ? (
                         <Badge variant="destructive">
                           <AlertTriangle className="h-3 w-3 mr-1" />
-                          Non identifié
+                          Non assigné
                         </Badge>
                       ) : sale.needsValidation ? (
-                        <Badge variant="secondary">
-                          <AlertTriangle className="h-3 w-3 mr-1" />À valider
-                        </Badge>
-                      ) : sale.confidence >= 0.9 ? (
-                        <Badge variant="default">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Auto
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                          <AlertTriangle className="h-3 w-3 mr-1" />À valider ({Math.round(sale.confidence * 100)}%)
                         </Badge>
                       ) : (
-                        <Badge variant="outline">Suggéré ({Math.round(sale.confidence * 100)}%)</Badge>
+                        <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Validé ({Math.round(sale.confidence * 100)}%)
+                        </Badge>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeUnassignedSale(sale.index)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -478,26 +721,33 @@ export function SalesImport() {
       )}
 
       <Dialog open={showNewCreatorDialog} onOpenChange={setShowNewCreatorDialog}>
-        <DialogContent>
+        <DialogContent className="bg-white">
           <DialogHeader>
-            <DialogTitle>Créer un nouveau créateur</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-slate-900">Créer un nouveau créateur</DialogTitle>
+            <DialogDescription className="text-slate-600">
               Ajoutez un nouveau créateur à la liste pour pouvoir l'assigner aux ventes.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="new-creator">Nom du créateur</Label>
+              <Label htmlFor="new-creator" className="text-slate-900 font-semibold">
+                Nom du créateur
+              </Label>
               <Input
                 id="new-creator"
                 value={newCreatorName}
                 onChange={(e) => setNewCreatorName(e.target.value)}
                 placeholder="Nom du nouveau créateur"
+                className="text-slate-900"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewCreatorDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowNewCreatorDialog(false)}
+              className="border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
               Annuler
             </Button>
             <Button onClick={handleCreateNewCreator} disabled={!newCreatorName.trim()}>

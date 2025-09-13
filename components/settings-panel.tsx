@@ -22,8 +22,10 @@ import {
   Percent,
   Store,
   Database,
+  Home,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
+import { Type } from "lucide-react"
 
 export function SettingsPanel() {
   const { settings, updateSettings, resetAllData, creators, stockData, monthlyData } = useStore()
@@ -42,6 +44,23 @@ export function SettingsPanel() {
       setSaveStatus({ type: "success", message: "Données réinitialisées avec succès !" })
       setTimeout(() => setSaveStatus(null), 3000)
     }
+  }
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveStatus({ type: "error", message: "Le fichier est trop volumineux (max 2MB)" })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      setLocalSettings({ ...localSettings, logoUrl: result })
+    }
+    reader.readAsDataURL(file)
   }
 
   const exportData = () => {
@@ -70,8 +89,6 @@ export function SettingsPanel() {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target?.result as string)
-        // Ici vous pourriez ajouter une validation des données
-        // Pour l'instant, on affiche juste un message
         setSaveStatus({ type: "success", message: "Fichier de sauvegarde lu avec succès !" })
       } catch (error) {
         setSaveStatus({ type: "error", message: "Erreur lors de la lecture du fichier de sauvegarde" })
@@ -83,6 +100,7 @@ export function SettingsPanel() {
   // Calculer les statistiques
   const totalMonths = Object.keys(monthlyData).length
   const totalSales = Object.values(monthlyData).reduce((sum, month) => sum + month.salesData.length, 0)
+  const totalParticipations = Object.values(monthlyData).reduce((sum, month) => sum + month.participations.length, 0)
 
   return (
     <div className="space-y-6">
@@ -94,19 +112,19 @@ export function SettingsPanel() {
         <div className="flex gap-4">
           <Badge variant="outline" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
-            {totalMonths} mois • {totalSales} ventes
+            {totalMonths} mois • {totalSales} ventes • {totalParticipations} participations
           </Badge>
         </div>
       </div>
 
-      {/* Paramètres généraux */}
+      {/* Paramètres d'apparence */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Paramètres généraux
+            <Type className="h-5 w-5" />
+            Apparence et branding
           </CardTitle>
-          <CardDescription>Configuration de base de votre boutique</CardDescription>
+          <CardDescription>Personnalisez l'apparence de votre application</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,6 +138,60 @@ export function SettingsPanel() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="shop-subtitle">Sous-titre</Label>
+              <Input
+                id="shop-subtitle"
+                value={localSettings.shopSubtitle}
+                onChange={(e) => setLocalSettings({ ...localSettings, shopSubtitle: e.target.value })}
+                placeholder="Gestion des ventes et créateurs"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="logo-upload">Logo de l'application</Label>
+            <div className="flex items-center gap-4">
+              {localSettings.logoUrl && (
+                <div className="w-16 h-16 border rounded-lg overflow-hidden bg-gray-50">
+                  <img
+                    src={localSettings.logoUrl || "/placeholder.svg"}
+                    alt="Logo"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <Input
+                  id="logo-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-muted file:text-muted-foreground"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Formats acceptés: JPG, PNG, GIF (max 2MB)</p>
+              </div>
+              {localSettings.logoUrl && (
+                <Button variant="outline" size="sm" onClick={() => setLocalSettings({ ...localSettings, logoUrl: "" })}>
+                  Supprimer
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Paramètres généraux */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Paramètres généraux
+          </CardTitle>
+          <CardDescription>Configuration de base de votre boutique</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="commission-rate">Taux de commission (%)</Label>
               <div className="flex items-center gap-2">
@@ -137,6 +209,24 @@ export function SettingsPanel() {
                 <Percent className="h-4 w-4 text-muted-foreground" />
               </div>
               <p className="text-xs text-muted-foreground">Commission appliquée sur les paiements non-espèces</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="loyer-mensuel">Loyer mensuel par défaut (€)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="loyer-mensuel"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={localSettings.loyerMensuel}
+                  onChange={(e) =>
+                    setLocalSettings({ ...localSettings, loyerMensuel: Number.parseFloat(e.target.value) || 0 })
+                  }
+                />
+                <Home className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground">Montant du loyer mensuel pour les participations</p>
             </div>
           </div>
 
@@ -189,7 +279,7 @@ export function SettingsPanel() {
                 Télécharger la sauvegarde
               </Button>
               <p className="text-xs text-muted-foreground">
-                Exporte toutes vos données (créateurs, stock, ventes, paramètres)
+                Exporte toutes vos données (créateurs, stock, ventes, paiements, participations, paramètres)
               </p>
             </div>
 
@@ -227,7 +317,7 @@ export function SettingsPanel() {
                 <div>
                   <h4 className="font-medium text-red-800">Réinitialiser toutes les données</h4>
                   <p className="text-sm text-red-600">
-                    Supprime définitivement tous les créateurs, stock, ventes et paramètres
+                    Supprime définitivement tous les créateurs, stock, ventes, paiements, participations et paramètres
                   </p>
                 </div>
                 <Button onClick={handleReset} variant="destructive" size="sm">
@@ -249,7 +339,7 @@ export function SettingsPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold">{creators.length}</div>
               <div className="text-sm text-muted-foreground">Créateurs</div>
@@ -261,6 +351,10 @@ export function SettingsPanel() {
             <div className="text-center">
               <div className="text-2xl font-bold">{totalSales}</div>
               <div className="text-sm text-muted-foreground">Ventes totales</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{totalParticipations}</div>
+              <div className="text-sm text-muted-foreground">Participations</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold">{totalMonths}</div>

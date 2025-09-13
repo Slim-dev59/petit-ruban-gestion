@@ -69,34 +69,39 @@ export function CreatorManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Gestion des créateurs</h2>
-          <p className="text-muted-foreground">Ajoutez et gérez vos créateurs</p>
+          <h2 className="text-2xl font-bold text-slate-900">Gestion des créateurs</h2>
+          <p className="text-slate-600 font-medium">Ajoutez et gérez vos créateurs</p>
         </div>
-        <Badge variant="outline" className="flex items-center gap-2">
+        <Badge variant="outline" className="flex items-center gap-2 bg-white border-slate-200 text-slate-900">
           <Users className="h-4 w-4" />
           {creators.length} créateurs
         </Badge>
       </div>
 
       {/* Ajout de créateur */}
-      <Card>
+      <Card className="bg-white border-slate-200 shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-slate-900">
             <Plus className="h-5 w-5" />
             Ajouter un créateur
           </CardTitle>
-          <CardDescription>Ajoutez un nouveau créateur à votre boutique</CardDescription>
+          <CardDescription className="text-slate-600 font-medium">
+            Ajoutez un nouveau créateur à votre boutique
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <div className="flex-1">
-              <Label htmlFor="creator-name">Nom du créateur</Label>
+              <Label htmlFor="creator-name" className="text-slate-900 font-semibold">
+                Nom du créateur
+              </Label>
               <Input
                 id="creator-name"
                 value={newCreatorName}
                 onChange={(e) => setNewCreatorName(e.target.value)}
                 placeholder="Nom du créateur"
                 onKeyPress={(e) => e.key === "Enter" && handleAddCreator()}
+                className="text-slate-900"
               />
             </div>
             <div className="flex items-end">
@@ -108,39 +113,42 @@ export function CreatorManagement() {
           </div>
 
           {addStatus && (
-            <Alert variant={addStatus.type === "error" ? "destructive" : "default"}>
+            <Alert
+              variant={addStatus.type === "error" ? "destructive" : "default"}
+              className="bg-white border-slate-200"
+            >
               {addStatus.type === "error" ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-              <AlertDescription>{addStatus.message}</AlertDescription>
+              <AlertDescription className="text-slate-900 font-medium">{addStatus.message}</AlertDescription>
             </Alert>
           )}
         </CardContent>
       </Card>
 
       {/* Liste des créateurs */}
-      <Card>
+      <Card className="bg-white border-slate-200 shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-slate-900">
             <Users className="h-5 w-5" />
             Liste des créateurs
           </CardTitle>
-          <CardDescription>Gérez vos créateurs existants</CardDescription>
+          <CardDescription className="text-slate-600 font-medium">Gérez vos créateurs existants</CardDescription>
         </CardHeader>
         <CardContent>
           {creators.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Aucun créateur configuré</p>
-              <p className="text-sm">Ajoutez votre premier créateur ci-dessus</p>
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+              <p className="text-slate-900 font-semibold">Aucun créateur configuré</p>
+              <p className="text-sm text-slate-600">Ajoutez votre premier créateur ci-dessus</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead className="text-center">Articles en stock</TableHead>
-                  <TableHead className="text-center">Ventes totales</TableHead>
-                  <TableHead className="text-right">CA total</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Nom</TableHead>
+                  <TableHead className="text-center text-slate-900 font-semibold">Articles en stock</TableHead>
+                  <TableHead className="text-center text-slate-900 font-semibold">Ventes totales</TableHead>
+                  <TableHead className="text-right text-slate-900 font-semibold">CA total</TableHead>
+                  <TableHead className="text-center text-slate-900 font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -148,18 +156,23 @@ export function CreatorManagement() {
                   const stats = getCreatorStats(creator)
                   return (
                     <TableRow key={creator}>
-                      <TableCell className="font-medium">{creator}</TableCell>
+                      <TableCell className="font-medium text-slate-900">{creator}</TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="flex items-center gap-1 w-fit mx-auto">
+                        <Badge
+                          variant="outline"
+                          className="flex items-center gap-1 w-fit mx-auto bg-white border-slate-200 text-slate-900"
+                        >
                           <Package className="h-3 w-3" />
                           {stats.stockItems}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="secondary">{stats.totalSales}</Badge>
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-900 border-slate-200">
+                          {stats.totalSales}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1 text-slate-900">
                           <DollarSign className="h-3 w-3" />
                           {stats.totalRevenue.toFixed(2)}€
                         </div>
@@ -172,7 +185,7 @@ export function CreatorManagement() {
                           }}
                           variant="outline"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -188,13 +201,13 @@ export function CreatorManagement() {
 
       {/* Dialog de confirmation de suppression */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
+        <DialogContent className="bg-white">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-slate-900">
               <AlertTriangle className="h-5 w-5 text-red-500" />
               Confirmer la suppression
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-slate-600">
               Êtes-vous sûr de vouloir supprimer le créateur "{creatorToDelete}" ?
               <br />
               <br />
@@ -203,7 +216,11 @@ export function CreatorManagement() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              className="border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
               Annuler
             </Button>
             <Button variant="destructive" onClick={handleDeleteCreator}>

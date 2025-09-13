@@ -78,10 +78,14 @@ export function StockOverview() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Aperçu du stock</h2>
-          <p className="text-muted-foreground">Consultez et gérez votre inventaire</p>
+          <h2 className="text-2xl font-bold text-slate-900">Aperçu du stock</h2>
+          <p className="text-slate-600 font-medium">Consultez et gérez votre inventaire</p>
         </div>
-        <Button onClick={exportStock} variant="outline">
+        <Button
+          onClick={exportStock}
+          variant="outline"
+          className="border-slate-200 text-slate-700 hover:bg-slate-50 bg-transparent"
+        >
           <Download className="h-4 w-4 mr-2" />
           Export CSV
         </Button>
@@ -89,55 +93,55 @@ export function StockOverview() {
 
       {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="bg-white border-slate-200 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Articles total</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-slate-900">Articles total</CardTitle>
+            <Package className="h-4 w-4 text-slate-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalItems}</div>
-            <p className="text-xs text-muted-foreground">articles en stock</p>
+            <div className="text-2xl font-bold text-slate-900">{totalItems}</div>
+            <p className="text-xs text-slate-600">articles en stock</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border-slate-200 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valeur totale</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-slate-900">Valeur totale</CardTitle>
+            <Package className="h-4 w-4 text-slate-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalValue.toFixed(2)}€</div>
-            <p className="text-xs text-muted-foreground">valeur du stock</p>
+            <div className="text-2xl font-bold text-slate-900">{totalValue.toFixed(2)}€</div>
+            <p className="text-xs text-slate-600">valeur du stock</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border-slate-200 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stock bas</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-900">Stock bas</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{lowStockItems}</div>
-            <p className="text-xs text-muted-foreground">articles en stock bas</p>
+            <p className="text-xs text-slate-600">articles en stock bas</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border-slate-200 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rupture</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-900">Rupture</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{outOfStockItems}</div>
-            <p className="text-xs text-muted-foreground">articles épuisés</p>
+            <p className="text-xs text-slate-600">articles épuisés</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filtres */}
-      <Card>
+      <Card className="bg-white border-slate-200 shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-slate-900">
             <Search className="h-5 w-5" />
             Filtres
           </CardTitle>
@@ -149,10 +153,11 @@ export function StockOverview() {
                 placeholder="Rechercher par article, créateur ou SKU..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="text-slate-900"
               />
             </div>
             <Select value={selectedCreator} onValueChange={setSelectedCreator}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 text-slate-900">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -164,7 +169,11 @@ export function StockOverview() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant={showLowStock ? "default" : "outline"} onClick={() => setShowLowStock(!showLowStock)}>
+            <Button
+              variant={showLowStock ? "default" : "outline"}
+              onClick={() => setShowLowStock(!showLowStock)}
+              className={showLowStock ? "" : "border-slate-200 text-slate-700 hover:bg-slate-50"}
+            >
               <AlertTriangle className="h-4 w-4 mr-2" />
               Stock bas uniquement
             </Button>
@@ -173,9 +182,9 @@ export function StockOverview() {
       </Card>
 
       {/* Tableau du stock */}
-      <Card>
+      <Card className="bg-white border-slate-200 shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle className="flex items-center justify-between text-slate-900">
             <span className="flex items-center gap-2">
               <Package className="h-5 w-5" />
               Stock ({filteredStock.length} articles)
@@ -184,23 +193,23 @@ export function StockOverview() {
         </CardHeader>
         <CardContent>
           {filteredStock.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Aucun article trouvé</p>
-              <p className="text-sm">Modifiez vos filtres ou importez du stock</p>
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+              <p className="text-slate-900 font-semibold">Aucun article trouvé</p>
+              <p className="text-sm text-slate-600">Modifiez vos filtres ou importez du stock</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Article</TableHead>
-                  <TableHead>Créateur</TableHead>
-                  <TableHead className="text-right">Prix</TableHead>
-                  <TableHead className="text-center">Quantité</TableHead>
-                  <TableHead>Catégorie</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead className="text-center">Statut</TableHead>
-                  <TableHead className="text-center">Image</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Article</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Créateur</TableHead>
+                  <TableHead className="text-right text-slate-900 font-semibold">Prix</TableHead>
+                  <TableHead className="text-center text-slate-900 font-semibold">Quantité</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">Catégorie</TableHead>
+                  <TableHead className="text-slate-900 font-semibold">SKU</TableHead>
+                  <TableHead className="text-center text-slate-900 font-semibold">Statut</TableHead>
+                  <TableHead className="text-center text-slate-900 font-semibold">Image</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -213,41 +222,61 @@ export function StockOverview() {
                   return (
                     <TableRow key={index} className={isOutOfStock ? "bg-red-50" : isLowStock ? "bg-orange-50" : ""}>
                       <TableCell className="font-medium max-w-xs">
-                        <div className="truncate" title={item.article}>
+                        <div className="truncate text-slate-900" title={item.article}>
                           {item.article}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{item.createur}</Badge>
+                        <Badge variant="outline" className="bg-white border-slate-200 text-slate-900">
+                          {item.createur}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right font-medium text-slate-900">
                         {Number.parseFloat(item.price).toFixed(2)}€
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={isOutOfStock ? "destructive" : isLowStock ? "secondary" : "default"}>
+                        <Badge
+                          variant={isOutOfStock ? "destructive" : isLowStock ? "secondary" : "default"}
+                          className={
+                            isOutOfStock
+                              ? ""
+                              : isLowStock
+                                ? "bg-orange-100 text-orange-800 border-orange-200"
+                                : "bg-green-100 text-green-800 border-green-200"
+                          }
+                        >
                           {quantity}
                         </Badge>
                       </TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell className="font-mono text-sm">{item.sku}</TableCell>
+                      <TableCell className="text-slate-900">{item.category}</TableCell>
+                      <TableCell className="font-mono text-sm text-slate-900">{item.sku}</TableCell>
                       <TableCell className="text-center">
                         {isOutOfStock ? (
                           <Badge variant="destructive">Épuisé</Badge>
                         ) : isLowStock ? (
-                          <Badge variant="secondary">Stock bas</Badge>
+                          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                            Stock bas
+                          </Badge>
                         ) : (
-                          <Badge variant="default">Disponible</Badge>
+                          <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                            Disponible
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
                         {item.image ? (
-                          <Button variant="outline" size="sm" asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="border-slate-200 text-slate-700 hover:bg-slate-50 bg-transparent"
+                          >
                             <a href={item.image} target="_blank" rel="noopener noreferrer">
                               <Eye className="h-3 w-3" />
                             </a>
                           </Button>
                         ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
+                          <span className="text-slate-600 text-sm">-</span>
                         )}
                       </TableCell>
                     </TableRow>
