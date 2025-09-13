@@ -1,206 +1,209 @@
 "use client"
 
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ImportFiles } from "@/components/import-files"
+import { Badge } from "@/components/ui/badge"
+import {
+  Users,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  Upload,
+  Settings,
+  FileText,
+  BarChart3,
+  Archive,
+  CreditCard,
+} from "lucide-react"
+
 import { CreatorManagement } from "@/components/creator-management"
 import { StockOverview } from "@/components/stock-overview"
+import { ImportFiles } from "@/components/import-files"
+import { SettingsPanel } from "@/components/settings-panel"
 import { SalesAnalytics } from "@/components/sales-analytics"
-import { PDFGenerator } from "@/components/pdf-generator"
+import { ArchiveManagement } from "@/components/archive-management"
 import { PaymentManagement } from "@/components/payment-management"
 import { ParticipationManagement } from "@/components/participation-management"
-import { SettingsPanel } from "@/components/settings-panel"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { UserMenu } from "@/components/auth/user-menu"
-import { useStore } from "@/lib/store"
-import { Upload, Users, Package, TrendingUp, FileText, CreditCard, Settings, AlertCircle, Zap } from "lucide-react"
-import { HomeIcon } from "lucide-react"
 
-function AppContent() {
-  const { settings, getTotalPendingSales } = useStore()
-  const pendingSalesCount = getTotalPendingSales()
+export default function Home() {
+  const [activeTab, setActiveTab] = useState("dashboard")
+  const [showImport, setShowImport] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [stats, setStats] = useState({
+    creators: 0,
+    products: 0,
+    sales: 0,
+    revenue: 0,
+  })
+
+  useEffect(() => {
+    const updateStats = () => {
+      const creators = JSON.parse(localStorage.getItem("creators") || "[]")
+      const stock = JSON.parse(localStorage.getItem("stock") || "[]")
+      const sales = JSON.parse(localStorage.getItem("sales") || "[]")
+
+      const revenue = sales.reduce((sum: number, sale: any) => sum + (sale.montant || 0), 0)
+
+      setStats({
+        creators: creators.length,
+        products: stock.length,
+        sales: sales.length,
+        revenue,
+      })
+    }
+
+    updateStats()
+    const interval = setInterval(updateStats, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header moderne avec glassmorphism */}
-      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 py-5">
-          <div className="flex items-center justify-between">
-            {/* Notifications à gauche */}
-            <div className="flex-1">
-              {pendingSalesCount > 0 && (
-                <div className="flex items-center space-x-2 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl px-4 py-2 shadow-sm w-fit">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-semibold text-red-800">{pendingSalesCount} en attente</span>
-                </div>
-              )}
-            </div>
-
-            {/* Logo et titre centrés */}
-            <div className="flex items-center space-x-4 flex-1 justify-center">
-              {settings.logoUrl && (
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-75 transition duration-300"></div>
-                  <img
-                    src={settings.logoUrl || "/placeholder.svg"}
-                    alt="Logo"
-                    className="relative w-12 h-12 object-cover rounded-xl border border-slate-200 shadow-sm"
-                  />
-                </div>
-              )}
-              <div className="text-center">
-                <h1 className="text-2xl font-bold text-slate-900">{settings.shopName}</h1>
-                <p className="text-sm font-medium text-slate-600">{settings.shopSubtitle}</p>
+    <AuthGuard>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center">
+                <h1 className="text-2xl font-bold text-force-black">Boutique Multi-Créateurs</h1>
+                <Badge variant="secondary" className="ml-3 text-force-black">
+                  v2.0
+                </Badge>
               </div>
-            </div>
 
-            {/* Menu utilisateur et statut à droite */}
-            <div className="flex items-center space-x-4 flex-1 justify-end">
-              <div className="flex items-center space-x-2 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl px-3 py-2 shadow-sm">
-                <Zap className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-semibold text-emerald-800">Sécurisé</span>
+              <div className="flex items-center space-x-4">
+                <Button variant="outline" onClick={() => setShowImport(true)} className="text-force-black">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import
+                </Button>
+
+                <Button variant="outline" onClick={() => setShowSettings(true)} className="text-force-black">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Paramètres
+                </Button>
+
+                <UserMenu />
               </div>
-              <UserMenu />
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Navigation moderne avec design cards */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <Tabs defaultValue="import" className="w-full">
-            <TabsList className="h-auto w-full bg-slate-100 rounded-2xl p-2 grid grid-cols-8 gap-2">
-              <TabsTrigger
-                value="import"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Upload className="h-4 w-4" />
-                  <span className="hidden sm:inline">Import</span>
-                  {pendingSalesCount > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
-                      {pendingSalesCount > 99 ? "99+" : pendingSalesCount}
-                    </span>
-                  )}
-                </div>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="tabs-modern">
+            <TabsList className="tabs-list-modern grid w-full grid-cols-7">
+              <TabsTrigger value="dashboard" className="tabs-trigger-modern">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Tableau de bord
               </TabsTrigger>
-
-              <TabsTrigger
-                value="creators"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Créateurs</span>
-                </div>
+              <TabsTrigger value="creators" className="tabs-trigger-modern">
+                <Users className="h-4 w-4 mr-2" />
+                Créateurs
               </TabsTrigger>
-
-              <TabsTrigger
-                value="stock"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Package className="h-4 w-4" />
-                  <span className="hidden sm:inline">Stock</span>
-                </div>
+              <TabsTrigger value="stock" className="tabs-trigger-modern">
+                <Package className="h-4 w-4 mr-2" />
+                Stock
               </TabsTrigger>
-
-              <TabsTrigger
-                value="sales"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4" />
-                  <span className="hidden sm:inline">Ventes</span>
-                </div>
+              <TabsTrigger value="sales" className="tabs-trigger-modern">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Ventes
               </TabsTrigger>
-
-              <TabsTrigger
-                value="reports"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <FileText className="h-4 w-4" />
-                  <span className="hidden sm:inline">Rapports</span>
-                </div>
+              <TabsTrigger value="payments" className="tabs-trigger-modern">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Paiements
               </TabsTrigger>
-
-              <TabsTrigger
-                value="payments"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <CreditCard className="h-4 w-4" />
-                  <span className="hidden sm:inline">Paiements</span>
-                </div>
+              <TabsTrigger value="participations" className="tabs-trigger-modern">
+                <FileText className="h-4 w-4 mr-2" />
+                Participations
               </TabsTrigger>
-
-              <TabsTrigger
-                value="participations"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <HomeIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Loyers</span>
-                </div>
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="settings"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">Config</span>
-                </div>
+              <TabsTrigger value="archives" className="tabs-trigger-modern">
+                <Archive className="h-4 w-4 mr-2" />
+                Archives
               </TabsTrigger>
             </TabsList>
 
-            {/* Contenu avec fond moderne */}
-            <div className="py-8">
-              <TabsContent value="import" className="mt-0">
-                <ImportFiles />
-              </TabsContent>
+            <TabsContent value="dashboard" className="tabs-content-modern space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-force-black">Créateurs</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-force-black">{stats.creators}</div>
+                    <p className="text-xs text-muted-foreground text-force-black">Créateurs actifs</p>
+                  </CardContent>
+                </Card>
 
-              <TabsContent value="creators" className="mt-0">
-                <CreatorManagement />
-              </TabsContent>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-force-black">Produits</CardTitle>
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-force-black">{stats.products}</div>
+                    <p className="text-xs text-muted-foreground text-force-black">Articles en stock</p>
+                  </CardContent>
+                </Card>
 
-              <TabsContent value="stock" className="mt-0">
-                <StockOverview />
-              </TabsContent>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-force-black">Ventes</CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-force-black">{stats.sales}</div>
+                    <p className="text-xs text-muted-foreground text-force-black">Transactions totales</p>
+                  </CardContent>
+                </Card>
 
-              <TabsContent value="sales" className="mt-0">
-                <SalesAnalytics />
-              </TabsContent>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-force-black">Chiffre d'affaires</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-force-black">{stats.revenue.toFixed(2)}€</div>
+                    <p className="text-xs text-muted-foreground text-force-black">Total des ventes</p>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <TabsContent value="reports" className="mt-0">
-                <PDFGenerator />
-              </TabsContent>
+              <SalesAnalytics />
+            </TabsContent>
 
-              <TabsContent value="payments" className="mt-0">
-                <PaymentManagement />
-              </TabsContent>
+            <TabsContent value="creators" className="tabs-content-modern">
+              <CreatorManagement />
+            </TabsContent>
 
-              <TabsContent value="participations" className="mt-0">
-                <ParticipationManagement />
-              </TabsContent>
+            <TabsContent value="stock" className="tabs-content-modern">
+              <StockOverview />
+            </TabsContent>
 
-              <TabsContent value="settings" className="mt-0">
-                <SettingsPanel />
-              </TabsContent>
-            </div>
+            <TabsContent value="sales" className="tabs-content-modern">
+              <SalesAnalytics />
+            </TabsContent>
+
+            <TabsContent value="payments" className="tabs-content-modern">
+              <PaymentManagement />
+            </TabsContent>
+
+            <TabsContent value="participations" className="tabs-content-modern">
+              <ParticipationManagement />
+            </TabsContent>
+
+            <TabsContent value="archives" className="tabs-content-modern">
+              <ArchiveManagement />
+            </TabsContent>
           </Tabs>
-        </div>
-      </div>
-    </div>
-  )
-}
+        </main>
 
-export default function Home() {
-  return (
-    <AuthGuard>
-      <AppContent />
+        {showImport && <ImportFiles onClose={() => setShowImport(false)} />}
+
+        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      </div>
     </AuthGuard>
   )
 }
