@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useAuth } from "@/lib/auth"
 import { LoginForm } from "./login-form"
 
@@ -11,41 +11,20 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { isAuthenticated, isSessionValid, extendSession } = useAuth()
-  const [isLoading, setIsLoading] = useState(true)
+  const { currentUser, isSessionValid, logout } = useAuth()
 
   useEffect(() => {
-    const checkSession = () => {
-      isSessionValid()
-      setIsLoading(false)
-    }
-
-    checkSession()
-
-    const interval = setInterval(
-      () => {
-        if (isAuthenticated && isSessionValid()) {
-          extendSession()
-        }
-      },
-      30 * 60 * 1000,
-    )
+    // Vérifier la validité de la session toutes les minutes
+    const interval = setInterval(() => {
+      if (currentUser && !isSessionValid()) {
+        logout()
+      }
+    }, 60000)
 
     return () => clearInterval(interval)
-  }, [isAuthenticated, isSessionValid, extendSession])
+  }, [currentUser, isSessionValid, logout])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-medium">Vérification de la session...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated || !isSessionValid()) {
+  if (!currentUser || !isSessionValid()) {
     return <LoginForm />
   }
 

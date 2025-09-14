@@ -28,10 +28,12 @@ import {
   Shield,
   Type,
   Palette,
+  Zap,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useAuth } from "@/lib/auth"
 import { UserManagement } from "@/components/auth/user-management"
+import { SumUpIntegration } from "@/components/sumup-integration"
 
 export function SettingsPanel() {
   const { settings, updateSettings, resetAllData, creators, stockData, monthlyData } = useStore()
@@ -125,7 +127,7 @@ export function SettingsPanel() {
       </div>
 
       <Tabs defaultValue="appearance" className="space-y-6">
-        <TabsList className="grid grid-cols-5">
+        <TabsList className="grid grid-cols-6">
           <TabsTrigger value="appearance" className="flex items-center space-x-2">
             <Palette className="h-4 w-4" />
             <span>Apparence</span>
@@ -145,6 +147,10 @@ export function SettingsPanel() {
           <TabsTrigger value="security" className="flex items-center space-x-2">
             <Shield className="h-4 w-4" />
             <span>Sécurité</span>
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="flex items-center space-x-2">
+            <Zap className="h-4 w-4" />
+            <span>Intégrations</span>
           </TabsTrigger>
         </TabsList>
 
@@ -431,6 +437,10 @@ export function SettingsPanel() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-6">
+          <SumUpIntegration />
         </TabsContent>
       </Tabs>
     </div>

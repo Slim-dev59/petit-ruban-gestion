@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,6 +16,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showCredentials, setShowCredentials] = useState(false)
 
   const login = useAuth((state) => state.login)
 
@@ -26,16 +26,24 @@ export function LoginForm() {
     setError("")
 
     try {
+      console.log("Tentative de connexion avec:", username, password)
       const success = login(username.trim(), password)
 
       if (!success) {
         setError("Nom d'utilisateur ou mot de passe incorrect")
       }
     } catch (err) {
+      console.error("Erreur de connexion:", err)
       setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const quickLogin = (user: string, pass: string) => {
+    setUsername(user)
+    setPassword(pass)
+    login(user, pass)
   }
 
   return (
@@ -115,6 +123,70 @@ export function LoginForm() {
               {isLoading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
+
+          <div className="space-y-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCredentials(!showCredentials)}
+              className="w-full text-slate-900"
+            >
+              {showCredentials ? "Masquer" : "Afficher"} les identifiants de test
+            </Button>
+
+            {showCredentials && (
+              <div className="space-y-2 p-3 bg-slate-50 rounded-lg">
+                <p className="text-sm font-medium text-slate-900 mb-2">Comptes disponibles :</p>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 bg-white rounded border">
+                    <div className="text-sm text-slate-900">
+                      <div className="font-medium">admin</div>
+                      <div className="text-slate-600">admin</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => quickLogin("admin", "admin")}
+                      className="text-slate-900"
+                    >
+                      Connexion
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-white rounded border">
+                    <div className="text-sm text-slate-900">
+                      <div className="font-medium">setup</div>
+                      <div className="text-slate-600">setup</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => quickLogin("setup", "setup")}
+                      className="text-slate-900"
+                    >
+                      Connexion
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-white rounded border">
+                    <div className="text-sm text-slate-900">
+                      <div className="font-medium">demo</div>
+                      <div className="text-slate-600">demo</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => quickLogin("demo", "demo")}
+                      className="text-slate-900"
+                    >
+                      Connexion
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="text-center text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
             🔒 Connexion sécurisée avec session de 8 heures
