@@ -4,8 +4,8 @@ export async function POST(request: NextRequest) {
   try {
     const { code, clientId, clientSecret } = await request.json()
 
-    // Échanger le code d'autorisation contre un token d'accès
-    const tokenResponse = await fetch("https://api.sumup.com/token", {
+    // En production, faire l'appel réel à l'API SumUp
+    const response = await fetch("https://api.sumup.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -15,23 +15,19 @@ export async function POST(request: NextRequest) {
         client_id: clientId,
         client_secret: clientSecret,
         code: code,
+        redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/sumup/callback`,
       }),
     })
 
-    if (!tokenResponse.ok) {
-      throw new Error("Erreur lors de l'échange du token")
+    if (!response.ok) {
+      throw new Error("Erreur lors de l'échange du code")
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await response.json()
 
-    return NextResponse.json({
-      success: true,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresIn: tokenData.expires_in,
-    })
+    return NextResponse.json(tokenData)
   } catch (error) {
-    console.error("Erreur token SumUp:", error)
-    return NextResponse.json({ success: false, error: "Erreur lors de l'authentification" }, { status: 500 })
+    console.error("Erreur API SumUp token:", error)
+    return NextResponse.json({ error: "Erreur lors de l'authentification" }, { status: 500 })
   }
 }

@@ -27,9 +27,7 @@ interface AuthState {
 
 // Stockage sécurisé des mots de passe (en production, utilisez un hash)
 const passwords: Record<string, string> = {
-  admin: "admin123",
-  setup: "setup123",
-  demo: "demo123",
+  setup: "Setup2024!",
 }
 
 export const useAuth = create<AuthState>()(
@@ -37,24 +35,10 @@ export const useAuth = create<AuthState>()(
     (set, get) => ({
       users: [
         {
-          id: "admin-user",
-          username: "admin",
-          name: "Administrateur",
-          role: "admin",
-          createdAt: new Date().toISOString(),
-        },
-        {
           id: "setup-user",
           username: "setup",
           name: "Utilisateur de configuration",
           role: "admin",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "demo-user",
-          username: "demo",
-          name: "Utilisateur de démonstration",
-          role: "user",
           createdAt: new Date().toISOString(),
         },
       ],
@@ -172,12 +156,3 @@ export const useAuth = create<AuthState>()(
     },
   ),
 )
-
-// Fonction pour obtenir les identifiants par défaut (utile pour le développement)
-export function getDefaultCredentials() {
-  return {
-    admin: { username: "admin", password: "admin123" },
-    setup: { username: "setup", password: "setup123" },
-    demo: { username: "demo", password: "demo123" },
-  }
-}
