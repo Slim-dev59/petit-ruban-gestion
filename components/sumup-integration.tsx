@@ -1,16 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Zap,
   CheckCircle,
@@ -22,17 +21,18 @@ import {
   Package,
   TrendingUp,
   AlertCircle,
+  Info,
 } from "lucide-react"
 
 interface SumUpConfig {
   clientId: string
   clientSecret: string
+  isConnected: boolean
   accessToken?: string
   refreshToken?: string
-  isConnected: boolean
+  lastSync?: string
   autoSync: boolean
   syncInterval: number // en minutes
-  lastSync?: string
 }
 
 interface SyncStats {
@@ -51,25 +51,20 @@ export function SumUpIntegration() {
     syncInterval: 60, // 1 heure par défaut
   })
 
-  const [stats, setStats] = useState<SyncStats>({
+  const [syncStats, setSyncStats] = useState<SyncStats>({
     productsCount: 0,
     transactionsCount: 0,
     isLoading: false,
   })
 
-  const [isConfiguring, setIsConfiguring] = useState(false)
   const [syncProgress, setSyncProgress] = useState(0)
+  const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null)
 
   // Charger la configuration au montage
   useEffect(() => {
     const savedConfig = localStorage.getItem("sumup-config")
     if (savedConfig) {
       setConfig(JSON.parse(savedConfig))
-    }
-
-    const savedStats = localStorage.getItem("sumup-stats")
-    if (savedStats) {
-      setStats(JSON.parse(savedStats))
     }
   }, [])
 
@@ -82,33 +77,18 @@ export function SumUpIntegration() {
   // Connexion OAuth avec SumUp
   const handleConnect = async () => {
     if (!config.clientId || !config.clientSecret) {
-      alert("Veuillez renseigner vos identifiants SumUp")
+      setMessage({ type: "error", text: "Veuillez renseigner le Client ID et le Client Secret" })
       return
     }
 
-    setIsConfiguring(true)
-
     try {
-      // Simuler la connexion OAuth (en production, rediriger vers SumUp)
-      const authUrl = `https://api.sumup.com/authorize?response_type=code&client_id=${config.clientId}&redirect_uri=${window.location.origin}/api/sumup/callback&scope=payments`
+      // Redirection vers l'autorisation SumUp
+      const authUrl = `https://api.sumup.com/authorize?response_type=code&client_id=${config.clientId}&redirect_uri=${encodeURIComponent(window.location.origin + "/api/sumup/callback")}&scope=payments`
 
-      // Pour la démo, simuler une connexion réussie
-      setTimeout(() => {
-        const newConfig = {
-          ...config,
-          isConnected: true,
-          accessToken: "demo_access_token",
-          refreshToken: "demo_refresh_token",
-        }
-        saveConfig(newConfig)
-        setIsConfiguring(false)
-      }, 2000)
-
-      // En production, ouvrir la fenêtre OAuth
-      // window.open(authUrl, '_blank', 'width=600,height=600')
+      setMessage({ type: "info", text: "Redirection vers SumUp pour l'autorisation..." })
+      window.location.href = authUrl
     } catch (error) {
-      console.error("Erreur de connexion SumUp:", error)
-      setIsConfiguring(false)
+      setMessage({ type: "error", text: "Erreur lors de la connexion à SumUp" })
     }
   }
 
@@ -121,135 +101,106 @@ export function SumUpIntegration() {
       refreshToken: undefined,
     }
     saveConfig(newConfig)
+    setMessage({ type: "success", text: "Déconnecté de SumUp avec succès" })
   }
 
   // Synchronisation manuelle
   const handleManualSync = async () => {
-    if (!config.isConnected) return
-
-    setStats((prev) => ({ ...prev, isLoading: true }))
+    setSyncStats((prev) => ({ ...prev, isLoading: true }))
     setSyncProgress(0)
+    setMessage({ type: "info", text: "Synchronisation en cours..." })
 
     try {
-      // Simuler la synchronisation des produits
-      setSyncProgress(25)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Simuler la synchronisation des transactions
-      setSyncProgress(75)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      setSyncProgress(100)
-
-      // Mettre à jour les statistiques
-      const newStats = {
-        productsCount: Math.floor(Math.random() * 50) + 10,
-        transactionsCount: Math.floor(Math.random() * 200) + 50,
-        lastSyncDate: new Date().toISOString(),
-        isLoading: false,
+      // Simulation de la synchronisation avec progression
+      for (let i = 0; i <= 100; i += 10) {
+        setSyncProgress(i)
+        await new Promise((resolve) => setTimeout(resolve, 200))
       }
 
-      setStats(newStats)
-      localStorage.setItem("sumup-stats", JSON.stringify(newStats))
+      // Appel aux API SumUp
+      const [productsResponse, transactionsResponse] = await Promise.all([
+        fetch("/api/sumup/products", {
+          headers: { Authorization: `Bearer ${config.accessToken}` },
+        }),
+        fetch("/api/sumup/transactions", {
+          headers: { Authorization: `Bearer ${config.accessToken}` },
+        }),
+      ])
+
+      const products = await productsResponse.json()
+      const transactions = await transactionsResponse.json()
+
+      setSyncStats({
+        productsCount: products.length || 0,
+        transactionsCount: transactions.length || 0,
+        lastSyncDate: new Date().toISOString(),
+        isLoading: false,
+      })
 
       const newConfig = {
         ...config,
         lastSync: new Date().toISOString(),
       }
       saveConfig(newConfig)
+
+      setMessage({
+        type: "success",
+        text: `Synchronisation terminée: ${products.length || 0} produits, ${transactions.length || 0} transactions`,
+      })
     } catch (error) {
-      console.error("Erreur de synchronisation:", error)
-    } finally {
-      setTimeout(() => {
-        setStats((prev) => ({ ...prev, isLoading: false }))
-        setSyncProgress(0)
-      }, 500)
+      setMessage({ type: "error", text: "Erreur lors de la synchronisation" })
+      setSyncStats((prev) => ({ ...prev, isLoading: false }))
     }
+
+    setSyncProgress(0)
   }
 
-  // Basculer la synchronisation automatique
-  const toggleAutoSync = (enabled: boolean) => {
-    const newConfig = {
-      ...config,
-      autoSync: enabled,
-    }
-    saveConfig(newConfig)
-  }
-
-  // Changer l'intervalle de synchronisation
-  const changeSyncInterval = (interval: string) => {
-    const newConfig = {
-      ...config,
-      syncInterval: Number.parseInt(interval),
-    }
+  // Mise à jour de la configuration
+  const updateConfig = (updates: Partial<SumUpConfig>) => {
+    const newConfig = { ...config, ...updates }
     saveConfig(newConfig)
   }
 
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-orange-100 rounded-lg">
-          <Zap className="h-6 w-6 text-orange-600" />
+      <div className="flex items-center space-x-3">
+        <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+          <Zap className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-black">Intégration SumUp</h2>
-          <p className="text-sm text-gray-600">Synchronisez automatiquement vos produits et ventes</p>
+          <h2 className="text-xl font-semibold text-slate-900">Intégration SumUp</h2>
+          <p className="text-sm text-slate-600">Synchronisez automatiquement vos produits et ventes</p>
         </div>
       </div>
 
-      {/* Statut de connexion */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-black">
-            {config.isConnected ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
-            ) : (
-              <XCircle className="h-5 w-5 text-red-500" />
-            )}
-            Statut de connexion
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Badge variant={config.isConnected ? "default" : "secondary"} className="text-black">
-                {config.isConnected ? "Connecté" : "Déconnecté"}
-              </Badge>
-              {config.lastSync && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Dernière sync: {new Date(config.lastSync).toLocaleString()}
-                </p>
-              )}
-            </div>
-            {config.isConnected ? (
-              <Button variant="outline" onClick={handleDisconnect} className="text-black bg-transparent">
-                Déconnecter
-              </Button>
-            ) : (
-              <Button onClick={handleConnect} disabled={isConfiguring} className="text-white">
-                {isConfiguring ? "Connexion..." : "Se connecter"}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Message d'état */}
+      {message && (
+        <Alert variant={message.type === "error" ? "destructive" : "default"}>
+          {message.type === "error" ? (
+            <AlertCircle className="h-4 w-4" />
+          ) : message.type === "success" ? (
+            <CheckCircle className="h-4 w-4" />
+          ) : (
+            <Info className="h-4 w-4" />
+          )}
+          <AlertDescription>{message.text}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Configuration */}
-      {!config.isConnected && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-black">
-              <Settings className="h-5 w-5" />
-              Configuration
-            </CardTitle>
-            <CardDescription className="text-black">
-              Configurez vos identifiants SumUp pour activer l'intégration
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2 text-slate-900">
+            <Settings className="h-5 w-5" />
+            <span>Configuration</span>
+          </CardTitle>
+          <CardDescription>Configurez vos identifiants SumUp pour activer l'intégration</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="clientId" className="text-black">
+              <Label htmlFor="clientId" className="text-slate-900">
                 Client ID
               </Label>
               <Input
@@ -257,12 +208,12 @@ export function SumUpIntegration() {
                 type="text"
                 placeholder="Votre Client ID SumUp"
                 value={config.clientId}
-                onChange={(e) => setConfig((prev) => ({ ...prev, clientId: e.target.value }))}
-                className="text-black"
+                onChange={(e) => updateConfig({ clientId: e.target.value })}
+                className="text-slate-900"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="clientSecret" className="text-black">
+              <Label htmlFor="clientSecret" className="text-slate-900">
                 Client Secret
               </Label>
               <Input
@@ -270,123 +221,178 @@ export function SumUpIntegration() {
                 type="password"
                 placeholder="Votre Client Secret SumUp"
                 value={config.clientSecret}
-                onChange={(e) => setConfig((prev) => ({ ...prev, clientSecret: e.target.value }))}
-                className="text-black"
+                onChange={(e) => updateConfig({ clientSecret: e.target.value })}
+                className="text-slate-900"
               />
             </div>
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-black">
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+            <div className="flex items-center space-x-3">
+              {config.isConnected ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-500" />
+              )}
+              <div>
+                <p className="font-medium text-slate-900">{config.isConnected ? "Connecté à SumUp" : "Non connecté"}</p>
+                <p className="text-sm text-slate-600">
+                  {config.isConnected
+                    ? "L'intégration est active et fonctionnelle"
+                    : "Connectez-vous pour activer l'intégration"}
+                </p>
+              </div>
+            </div>
+            {config.isConnected ? (
+              <Button variant="outline" onClick={handleDisconnect}>
+                Se déconnecter
+              </Button>
+            ) : (
+              <Button onClick={handleConnect} className="bg-orange-500 hover:bg-orange-600">
+                Se connecter
+              </Button>
+            )}
+          </div>
+
+          <div className="text-sm text-slate-600 bg-blue-50 p-3 rounded-lg">
+            <p className="font-medium text-slate-900 mb-1">Comment obtenir vos identifiants :</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>
                 Créez une application sur{" "}
                 <a
                   href="https://developer.sumup.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                  className="text-blue-600 hover:underline inline-flex items-center"
                 >
-                  developer.sumup.com
-                  <ExternalLink className="h-3 w-3" />
-                </a>{" "}
-                pour obtenir vos identifiants.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
-      )}
+                  developer.sumup.com <ExternalLink className="h-3 w-3 ml-1" />
+                </a>
+              </li>
+              <li>Copiez le Client ID et Client Secret</li>
+              <li>
+                Configurez l'URL de redirection :{" "}
+                <code className="bg-white px-1 rounded">{window.location.origin}/api/sumup/callback</code>
+              </li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Tableau de bord */}
+      {/* Synchronisation */}
       {config.isConnected && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-black">
-              <TrendingUp className="h-5 w-5" />
-              Tableau de bord
+            <CardTitle className="flex items-center space-x-2 text-slate-900">
+              <RefreshCw className="h-5 w-5" />
+              <span>Synchronisation</span>
             </CardTitle>
+            <CardDescription>Gérez la synchronisation de vos données SumUp</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-2">
+          <CardContent className="space-y-6">
+            {/* Statistiques */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
                   <Package className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium text-black">Produits synchronisés</span>
+                  <div>
+                    <p className="text-sm text-blue-600">Produits synchronisés</p>
+                    <p className="text-2xl font-bold text-blue-900">{syncStats.productsCount}</p>
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-blue-600 mt-1">{stats.productsCount}</p>
               </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="flex items-center gap-2">
+              <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
                   <TrendingUp className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-black">Ventes ce mois</span>
+                  <div>
+                    <p className="text-sm text-green-600">Ventes ce mois</p>
+                    <p className="text-2xl font-bold text-green-900">{syncStats.transactionsCount}</p>
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-green-600 mt-1">{stats.transactionsCount}</p>
+              </div>
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <p className="text-sm text-purple-600">Dernière sync</p>
+                    <p className="text-sm font-medium text-purple-900">
+                      {config.lastSync
+                        ? new Date(config.lastSync).toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Jamais"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {stats.isLoading && (
+            {/* Barre de progression */}
+            {syncStats.isLoading && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-black">Synchronisation en cours...</span>
-                  <span className="text-sm text-gray-600">{syncProgress}%</span>
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Synchronisation en cours...</span>
+                  <span>{syncProgress}%</span>
                 </div>
                 <Progress value={syncProgress} className="h-2" />
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleManualSync}
-                disabled={stats.isLoading}
-                className="flex items-center gap-2 text-white"
-              >
-                <RefreshCw className={`h-4 w-4 ${stats.isLoading ? "animate-spin" : ""}`} />
-                Synchroniser maintenant
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <Separator />
 
-      {/* Synchronisation automatique */}
-      {config.isConnected && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-black">
-              <Clock className="h-5 w-5" />
-              Synchronisation automatique
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="autoSync" className="text-black">
-                  Activer la synchronisation automatique
-                </Label>
-                <p className="text-sm text-gray-600">Synchronise automatiquement vos données à intervalle régulier</p>
+            {/* Contrôles de synchronisation */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-slate-900">Synchronisation automatique</p>
+                  <p className="text-sm text-slate-600">
+                    Synchronise automatiquement vos données à intervalle régulier
+                  </p>
+                </div>
+                <Switch checked={config.autoSync} onCheckedChange={(checked) => updateConfig({ autoSync: checked })} />
               </div>
-              <Switch id="autoSync" checked={config.autoSync} onCheckedChange={toggleAutoSync} />
-            </div>
 
-            {config.autoSync && (
-              <>
-                <Separator />
+              {config.autoSync && (
                 <div className="space-y-2">
-                  <Label htmlFor="syncInterval" className="text-black">
+                  <Label htmlFor="syncInterval" className="text-slate-900">
                     Intervalle de synchronisation
                   </Label>
-                  <Select value={config.syncInterval.toString()} onValueChange={changeSyncInterval}>
-                    <SelectTrigger className="text-black">
+                  <Select
+                    value={config.syncInterval.toString()}
+                    onValueChange={(value) => updateConfig({ syncInterval: Number.parseInt(value) })}
+                  >
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="15">Toutes les 15 minutes</SelectItem>
                       <SelectItem value="30">Toutes les 30 minutes</SelectItem>
                       <SelectItem value="60">Toutes les heures</SelectItem>
-                      <SelectItem value="240">Toutes les 4 heures</SelectItem>
+                      <SelectItem value="180">Toutes les 3 heures</SelectItem>
+                      <SelectItem value="360">Toutes les 6 heures</SelectItem>
+                      <SelectItem value="720">Toutes les 12 heures</SelectItem>
                       <SelectItem value="1440">Tous les jours</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </>
-            )}
+              )}
+
+              <Button onClick={handleManualSync} disabled={syncStats.isLoading} className="w-full">
+                {syncStats.isLoading ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Synchronisation...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Synchroniser maintenant
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

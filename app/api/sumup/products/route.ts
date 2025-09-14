@@ -3,11 +3,11 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
+
     if (!authHeader) {
-      return NextResponse.json({ error: "Token manquant" }, { status: 401 })
+      return NextResponse.json({ error: "Token d'autorisation manquant" }, { status: 401 })
     }
 
-    // En production, faire l'appel réel à l'API SumUp
     const response = await fetch("https://api.sumup.com/v0.1/me/products", {
       headers: {
         Authorization: authHeader,
@@ -15,15 +15,14 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const data = await response.json()
+
     if (!response.ok) {
-      throw new Error("Erreur lors de la récupération des produits")
+      return NextResponse.json({ error: "Erreur lors de la récupération des produits" }, { status: response.status })
     }
 
-    const products = await response.json()
-
-    return NextResponse.json(products)
+    return NextResponse.json(data)
   } catch (error) {
-    console.error("Erreur API SumUp products:", error)
-    return NextResponse.json({ error: "Erreur lors de la récupération des produits" }, { status: 500 })
+    return NextResponse.json({ error: "Erreur serveur lors de la récupération des produits" }, { status: 500 })
   }
 }

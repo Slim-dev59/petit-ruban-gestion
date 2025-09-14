@@ -3,31 +3,40 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
+
     if (!authHeader) {
-      return NextResponse.json({ error: "Token manquant" }, { status: 401 })
+      return NextResponse.json({ error: "Token d'autorisation manquant" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const limit = searchParams.get("limit") || "100"
-    const since = searchParams.get("since") || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    // Récupérer les transactions des 30 derniers jours
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - 30)
 
-    // En production, faire l'appel réel à l'API SumUp
-    const response = await fetch(`https://api.sumup.com/v0.1/me/transactions/history?limit=${limit}&since=${since}`, {
+    const params = new URLSearchParams({
+      start_date: startDate.toISOString().split("T")[0],
+      end_date: endDate.toISOString().split("T")[0],
+      limit: "100",
+    })
+
+    const response = await fetch(`https://api.sumup.com/v0.1/me/transactions/history?${params}`, {
       headers: {
         Authorization: authHeader,
         "Content-Type": "application/json",
       },
     })
 
+    const data = await response.json()
+
     if (!response.ok) {
-      throw new Error("Erreur lors de la récupération des transactions")
+      return NextResponse.json(
+        { error: "Erreur lors de la récupération des transactions" },
+        { status: response.status },
+      )
     }
 
-    const transactions = await response.json()
-
-    return NextResponse.json(transactions)
+    return NextResponse.json(data)
   } catch (error) {
-    console.error("Erreur API SumUp transactions:", error)
-    return NextResponse.json({ error: "Erreur lors de la récupération des transactions" }, { status: 500 })
+    return NextResponse.json({ error: "Erreur serveur lors de la récupération des transactions" }, { status: 500 })
   }
 }
