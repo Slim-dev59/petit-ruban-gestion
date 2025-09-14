@@ -2,13 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { code, clientId, clientSecret } = await request.json()
+    const { code, clientId, clientSecret, redirectUri } = await request.json()
 
-    if (!code || !clientId || !clientSecret) {
-      return NextResponse.json({ success: false, error: "Paramètres manquants" }, { status: 400 })
-    }
-
-    const tokenResponse = await fetch("https://api.sumup.com/token", {
+    const response = await fetch("https://api.sumup.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -18,27 +14,30 @@ export async function POST(request: NextRequest) {
         client_id: clientId,
         client_secret: clientSecret,
         code: code,
-        redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/sumup/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 
-    const tokenData = await tokenResponse.json()
+    const data = await response.json()
 
-    if (!tokenResponse.ok) {
-      return NextResponse.json(
-        { success: false, error: tokenData.error_description || "Erreur lors de l'échange du token" },
-        { status: 400 },
-      )
+    if (response.ok) {
+      return NextResponse.json({
+        success: true,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresIn: data.expires_in,
+      })
+    } else {
+      return NextResponse.json({
+        success: false,
+        error: data.error_description || data.error || "Erreur lors de l'échange du token",
+      })
     }
-
-    return NextResponse.json({
-      success: true,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresIn: tokenData.expires_in,
-    })
   } catch (error) {
     console.error("Erreur API token:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      error: "Erreur serveur lors de l'échange du token",
+    })
   }
 }

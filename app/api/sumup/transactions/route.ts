@@ -3,9 +3,8 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   try {
     const authorization = request.headers.get("authorization")
-
     if (!authorization) {
-      return NextResponse.json({ success: false, error: "Token d'autorisation manquant" }, { status: 401 })
+      return NextResponse.json({ success: false, error: "Token d'accès manquant" })
     }
 
     // Récupérer les transactions des 30 derniers jours
@@ -26,43 +25,28 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
-        { success: false, error: errorData.message || "Erreur lors de la récupération des transactions" },
-        { status: response.status },
-      )
-    }
-
     const data = await response.json()
 
-    // Transformer les données SumUp en format local
-    const transactions =
-      data.items?.map((transaction: any) => ({
-        id: transaction.id,
-        transaction_code: transaction.transaction_code,
-        amount: transaction.amount,
-        currency: transaction.currency,
-        timestamp: transaction.timestamp,
-        status: transaction.status,
-        payment_type: transaction.payment_type,
-        product_summary: transaction.product_summary,
-        merchant_code: transaction.merchant_code,
-        vat_amount: transaction.vat_amount,
-        tip_amount: transaction.tip_amount,
-      })) || []
-
-    return NextResponse.json({
-      success: true,
-      transactions,
-      count: transactions.length,
-      period: {
-        start_date: startDate.toISOString().split("T")[0],
-        end_date: endDate.toISOString().split("T")[0],
-      },
-    })
+    if (response.ok) {
+      return NextResponse.json({
+        success: true,
+        transactions: data,
+        period: {
+          start: startDate.toISOString().split("T")[0],
+          end: endDate.toISOString().split("T")[0],
+        },
+      })
+    } else {
+      return NextResponse.json({
+        success: false,
+        error: data.message || "Erreur lors de la récupération des transactions",
+      })
+    }
   } catch (error) {
     console.error("Erreur API transactions:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      error: "Erreur serveur lors de la récupération des transactions",
+    })
   }
 }
