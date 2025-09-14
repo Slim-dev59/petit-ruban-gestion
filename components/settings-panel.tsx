@@ -3,317 +3,398 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { UserManagement } from "@/components/auth/user-management"
-import { SumUpIntegration } from "@/components/sumup-integration"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Palette,
   Settings,
-  Users,
-  Database,
-  Shield,
-  Zap,
+  Save,
+  Download,
   Upload,
-  Building,
-  Mail,
-  Phone,
-  MapPin,
-  Globe,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  Percent,
+  Store,
+  Database,
+  Home,
+  Users,
+  Shield,
+  Type,
+  Palette,
 } from "lucide-react"
-
-interface CompanySettings {
-  name: string
-  address: string
-  phone: string
-  email: string
-  website: string
-  logo?: string
-}
+import { useStore } from "@/lib/store"
+import { useAuth } from "@/lib/auth"
+import { UserManagement } from "@/components/auth/user-management"
 
 export function SettingsPanel() {
-  const [darkMode, setDarkMode] = useState(false)
-  const [language, setLanguage] = useState("fr")
-  const [currency, setCurrency] = useState("EUR")
-  const [companySettings, setCompanySettings] = useState<CompanySettings>({
-    name: "Ma Boutique Multi-Créateurs",
-    address: "123 Rue de la Créativité, 75001 Paris",
-    phone: "+33 1 23 45 67 89",
-    email: "contact@boutique.com",
-    website: "www.boutique.com",
-  })
+  const { settings, updateSettings, resetAllData, creators, stockData, monthlyData } = useStore()
+  const { currentUser } = useAuth()
+  const [localSettings, setLocalSettings] = useState(settings)
+  const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setCompanySettings((prev) => ({
-          ...prev,
-          logo: e.target?.result as string,
-        }))
-      }
-      reader.readAsDataURL(file)
+  const handleSave = () => {
+    updateSettings(localSettings)
+    setSaveStatus({ type: "success", message: "Paramètres sauvegardés avec succès !" })
+    setTimeout(() => setSaveStatus(null), 3000)
+  }
+
+  const handleReset = () => {
+    if (confirm("Êtes-vous sûr de vouloir réinitialiser toutes les données ? Cette action est irréversible.")) {
+      resetAllData()
+      setSaveStatus({ type: "success", message: "Données réinitialisées avec succès !" })
+      setTimeout(() => setSaveStatus(null), 3000)
     }
   }
 
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveStatus({ type: "error", message: "Le fichier est trop volumineux (max 2MB)" })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      setLocalSettings({ ...localSettings, logoUrl: result })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const exportData = () => {
+    const data = {
+      creators,
+      stockData,
+      monthlyData,
+      settings,
+      exportDate: new Date().toISOString(),
+    }
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `boutique-backup-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string)
+        setSaveStatus({ type: "success", message: "Fichier de sauvegarde lu avec succès !" })
+      } catch (error) {
+        setSaveStatus({ type: "error", message: "Erreur lors de la lecture du fichier de sauvegarde" })
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  // Calculer les statistiques
+  const totalMonths = Object.keys(monthlyData).length
+  const totalSales = Object.values(monthlyData).reduce((sum, month) => sum + month.salesData.length, 0)
+  const totalParticipations = Object.values(monthlyData).reduce((sum, month) => sum + month.participations.length, 0)
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Paramètres</h1>
-        <p className="text-slate-600 mt-2">Configurez votre application selon vos préférences</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Paramètres</h2>
+          <p className="text-muted-foreground">Configuration générale de l'application</p>
+        </div>
+        <div className="flex gap-4">
+          <Badge variant="outline" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            {totalMonths} mois • {totalSales} ventes • {totalParticipations} participations
+          </Badge>
+        </div>
       </div>
 
       <Tabs defaultValue="appearance" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 bg-slate-100 rounded-2xl p-2 h-auto">
-          <TabsTrigger
-            value="appearance"
-            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 flex items-center space-x-2"
-          >
+        <TabsList className="grid grid-cols-5">
+          <TabsTrigger value="appearance" className="flex items-center space-x-2">
             <Palette className="h-4 w-4" />
-            <span className="hidden sm:inline text-slate-900">Apparence</span>
+            <span>Apparence</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="general"
-            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 flex items-center space-x-2"
-          >
+          <TabsTrigger value="general" className="flex items-center space-x-2">
             <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline text-slate-900">Général</span>
+            <span>Général</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="users"
-            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 flex items-center space-x-2"
-          >
+          <TabsTrigger value="users" className="flex items-center space-x-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline text-slate-900">Utilisateurs</span>
+            <span>Utilisateurs</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="data"
-            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 flex items-center space-x-2"
-          >
+          <TabsTrigger value="data" className="flex items-center space-x-2">
             <Database className="h-4 w-4" />
-            <span className="hidden sm:inline text-slate-900">Données</span>
+            <span>Données</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="security"
-            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 flex items-center space-x-2"
-          >
+          <TabsTrigger value="security" className="flex items-center space-x-2">
             <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline text-slate-900">Sécurité</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="integrations"
-            className="h-12 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 flex items-center space-x-2"
-          >
-            <Zap className="h-4 w-4" />
-            <span className="hidden sm:inline text-slate-900">Intégrations</span>
+            <span>Sécurité</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="appearance" className="space-y-6">
+          {/* Paramètres d'apparence */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-slate-900">Thème et apparence</CardTitle>
-              <CardDescription>Personnalisez l'apparence de votre interface</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Type className="h-5 w-5" />
+                Apparence et branding
+              </CardTitle>
+              <CardDescription>Personnalisez l'apparence de votre application</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base text-slate-900">Mode sombre</Label>
-                  <p className="text-sm text-slate-600">Activer le thème sombre pour l'interface</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shop-name">Nom de la boutique</Label>
+                  <Input
+                    id="shop-name"
+                    value={localSettings.shopName}
+                    onChange={(e) => setLocalSettings({ ...localSettings, shopName: e.target.value })}
+                    placeholder="Ma Boutique Multi-Créateurs"
+                  />
                 </div>
-                <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+
+                <div className="space-y-2">
+                  <Label htmlFor="shop-subtitle">Sous-titre</Label>
+                  <Input
+                    id="shop-subtitle"
+                    value={localSettings.shopSubtitle}
+                    onChange={(e) => setLocalSettings({ ...localSettings, shopSubtitle: e.target.value })}
+                    placeholder="Gestion des ventes et créateurs"
+                  />
+                </div>
               </div>
-              <Separator />
+
               <div className="space-y-2">
-                <Label className="text-slate-900">Langue de l'interface</Label>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fr">Français</SelectItem>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="es">Español</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="logo-upload">Logo de l'application</Label>
+                <div className="flex items-center gap-4">
+                  {localSettings.logoUrl && (
+                    <div className="w-16 h-16 border rounded-lg overflow-hidden bg-gray-50">
+                      <img
+                        src={localSettings.logoUrl || "/placeholder.svg"}
+                        alt="Logo"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-muted file:text-muted-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Formats acceptés: JPG, PNG, GIF (max 2MB)</p>
+                  </div>
+                  {localSettings.logoUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLocalSettings({ ...localSettings, logoUrl: "" })}
+                    >
+                      Supprimer
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex justify-between">
+                <Button onClick={handleSave} className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  Sauvegarder l'apparence
+                </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="general" className="space-y-6">
+          {/* Paramètres généraux */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2 text-slate-900">
-                <Building className="h-5 w-5" />
-                <span>Informations de l'entreprise</span>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Paramètres généraux
               </CardTitle>
-              <CardDescription>Configurez les informations de votre entreprise</CardDescription>
+              <CardDescription>Configuration de base de votre boutique</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Logo de l'entreprise */}
-              <div className="space-y-4">
-                <Label className="text-slate-900">Logo de l'entreprise</Label>
-                <div className="flex items-center space-x-4">
-                  {companySettings.logo ? (
-                    <img
-                      src={companySettings.logo || "/placeholder.svg"}
-                      alt="Logo"
-                      className="w-16 h-16 object-contain border rounded-lg"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-slate-100 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center">
-                      <Upload className="h-6 w-6 text-slate-400" />
-                    </div>
-                  )}
-                  <div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                      id="logo-upload"
-                    />
-                    <Label htmlFor="logo-upload" className="cursor-pointer">
-                      <Button variant="outline" asChild>
-                        <span>Choisir un fichier</span>
-                      </Button>
-                    </Label>
-                    <p className="text-sm text-slate-600 mt-1">PNG, JPG jusqu'à 2MB</p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Informations de l'entreprise */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName" className="text-slate-900">
-                    Nom de l'entreprise
-                  </Label>
-                  <Input
-                    id="companyName"
-                    value={companySettings.name}
-                    onChange={(e) => setCompanySettings((prev) => ({ ...prev, name: e.target.value }))}
-                    className="text-slate-900"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="companyEmail" className="text-slate-900">
-                    Email
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Label htmlFor="commission-rate">Taux de commission (%)</Label>
+                  <div className="flex items-center gap-2">
                     <Input
-                      id="companyEmail"
-                      type="email"
-                      value={companySettings.email}
-                      onChange={(e) => setCompanySettings((prev) => ({ ...prev, email: e.target.value }))}
-                      className="pl-10 text-slate-900"
+                      id="commission-rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={localSettings.commissionRate}
+                      onChange={(e) =>
+                        setLocalSettings({ ...localSettings, commissionRate: Number.parseFloat(e.target.value) || 0 })
+                      }
                     />
+                    <Percent className="h-4 w-4 text-muted-foreground" />
                   </div>
+                  <p className="text-xs text-muted-foreground">Commission appliquée sur les paiements non-espèces</p>
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="companyPhone" className="text-slate-900">
-                    Téléphone
-                  </Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Label htmlFor="loyer-mensuel">Loyer mensuel par défaut (€)</Label>
+                  <div className="flex items-center gap-2">
                     <Input
-                      id="companyPhone"
-                      value={companySettings.phone}
-                      onChange={(e) => setCompanySettings((prev) => ({ ...prev, phone: e.target.value }))}
-                      className="pl-10 text-slate-900"
+                      id="loyer-mensuel"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={localSettings.loyerMensuel}
+                      onChange={(e) =>
+                        setLocalSettings({ ...localSettings, loyerMensuel: Number.parseFloat(e.target.value) || 0 })
+                      }
                     />
+                    <Home className="h-4 w-4 text-muted-foreground" />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="companyWebsite" className="text-slate-900">
-                    Site web
-                  </Label>
-                  <div className="relative">
-                    <Globe className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                    <Input
-                      id="companyWebsite"
-                      value={companySettings.website}
-                      onChange={(e) => setCompanySettings((prev) => ({ ...prev, website: e.target.value }))}
-                      className="pl-10 text-slate-900"
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground">Montant du loyer mensuel pour les participations</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="companyAddress" className="text-slate-900">
-                  Adresse
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  <Input
-                    id="companyAddress"
-                    value={companySettings.address}
-                    onChange={(e) => setCompanySettings((prev) => ({ ...prev, address: e.target.value }))}
-                    className="pl-10 text-slate-900"
-                  />
-                </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="auto-commission"
+                  checked={localSettings.autoApplyCommission}
+                  onCheckedChange={(checked) => setLocalSettings({ ...localSettings, autoApplyCommission: checked })}
+                />
+                <Label htmlFor="auto-commission">Appliquer automatiquement les commissions</Label>
               </div>
 
               <Separator />
 
-              <div className="space-y-2">
-                <Label className="text-slate-900">Devise par défaut</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EUR">Euro (€)</SelectItem>
-                    <SelectItem value="USD">Dollar US ($)</SelectItem>
-                    <SelectItem value="GBP">Livre Sterling (£)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex justify-between">
+                <Button onClick={handleSave} className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  Sauvegarder
+                </Button>
               </div>
 
-              <Button className="w-full">Sauvegarder les modifications</Button>
+              {saveStatus && (
+                <Alert variant={saveStatus.type === "error" ? "destructive" : "default"}>
+                  {saveStatus.type === "error" ? (
+                    <AlertTriangle className="h-4 w-4" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4" />
+                  )}
+                  <AlertDescription>{saveStatus.message}</AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6">
-          <UserManagement />
+          {currentUser?.role === "admin" ? (
+            <UserManagement />
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Shield className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Accès administrateur requis</h3>
+                  <p className="text-slate-600">Vous devez être administrateur pour gérer les utilisateurs.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="data" className="space-y-6">
+          {/* Sauvegarde et restauration */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-slate-900">Gestion des données</CardTitle>
-              <CardDescription>Importez, exportez et gérez vos données</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Sauvegarde et restauration
+              </CardTitle>
+              <CardDescription>Exportez ou importez vos données</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button variant="outline" className="h-20 flex-col bg-transparent">
-                  <Database className="h-6 w-6 mb-2" />
-                  <span className="text-slate-900">Exporter les données</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex-col bg-transparent">
-                  <Upload className="h-6 w-6 mb-2" />
-                  <span className="text-slate-900">Importer des données</span>
-                </Button>
+                <div className="space-y-2">
+                  <Label>Exporter les données</Label>
+                  <Button onClick={exportData} variant="outline" className="w-full bg-transparent">
+                    <Download className="h-4 w-4 mr-2" />
+                    Télécharger la sauvegarde
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Exporte toutes vos données (créateurs, stock, ventes, paiements, participations, paramètres)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="import-file">Importer les données</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="import-file"
+                      type="file"
+                      accept=".json"
+                      onChange={importData}
+                      className="file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-muted file:text-muted-foreground"
+                    />
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Restaure les données depuis un fichier de sauvegarde</p>
+                </div>
               </div>
-              <Separator />
-              <div className="space-y-4">
-                <h4 className="font-medium text-slate-900">Sauvegarde automatique</h4>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Sauvegarder automatiquement les données</span>
-                  <Switch />
+            </CardContent>
+          </Card>
+
+          {/* Statistiques */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Store className="h-5 w-5" />
+                Statistiques de l'application
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{creators.length}</div>
+                  <div className="text-sm text-muted-foreground">Créateurs</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{stockData.length}</div>
+                  <div className="text-sm text-muted-foreground">Articles en stock</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{totalSales}</div>
+                  <div className="text-sm text-muted-foreground">Ventes totales</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{totalParticipations}</div>
+                  <div className="text-sm text-muted-foreground">Participations</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{totalMonths}</div>
+                  <div className="text-sm text-muted-foreground">Mois de données</div>
                 </div>
               </div>
             </CardContent>
@@ -321,37 +402,35 @@ export function SettingsPanel() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-6">
-          <Card>
+          {/* Zone de danger */}
+          <Card className="border-red-200">
             <CardHeader>
-              <CardTitle className="text-slate-900">Sécurité et confidentialité</CardTitle>
-              <CardDescription>Gérez les paramètres de sécurité de votre compte</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Zone de danger
+              </CardTitle>
+              <CardDescription>Actions irréversibles - utilisez avec précaution</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-slate-900">Authentification à deux facteurs</p>
-                    <p className="text-sm text-slate-600">Ajouter une couche de sécurité supplémentaire</p>
+                <div className="p-4 border border-red-200 rounded-lg bg-red-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-red-800">Réinitialiser toutes les données</h4>
+                      <p className="text-sm text-red-600">
+                        Supprime définitivement tous les créateurs, stock, ventes, paiements, participations et
+                        paramètres
+                      </p>
+                    </div>
+                    <Button onClick={handleReset} variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Réinitialiser
+                    </Button>
                   </div>
-                  <Badge variant="secondary">Bientôt disponible</Badge>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-slate-900">Sessions actives</p>
-                    <p className="text-sm text-slate-600">Gérer les appareils connectés</p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Voir les sessions
-                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="integrations" className="space-y-6">
-          <SumUpIntegration />
         </TabsContent>
       </Tabs>
     </div>

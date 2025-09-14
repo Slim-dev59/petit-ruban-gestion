@@ -1,7 +1,9 @@
 "use client"
 
 import React from "react"
+
 import type { ReactElement } from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,9 +49,6 @@ export function UserMenu(): ReactElement | null {
 
   if (!currentUser) return null
 
-  const displayName = currentUser.name || currentUser.username || "Utilisateur"
-  const userInitial = displayName.charAt(0).toUpperCase()
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -57,7 +56,7 @@ export function UserMenu(): ReactElement | null {
           variant="ghost"
           className="relative h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
         >
-          <span className="text-white font-semibold">{userInitial}</span>
+          <span className="text-white font-semibold">{currentUser.displayName.charAt(0).toUpperCase()}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80" align="end" forceMount>
@@ -65,10 +64,12 @@ export function UserMenu(): ReactElement | null {
           <div className="flex flex-col space-y-2">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">{userInitial}</span>
+                <span className="text-white text-sm font-semibold">
+                  {currentUser.displayName.charAt(0).toUpperCase()}
+                </span>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium leading-none text-slate-900">{displayName}</p>
+                <p className="text-sm font-medium leading-none text-slate-900">{currentUser.displayName}</p>
                 <p className="text-xs leading-none text-slate-500 mt-1">@{currentUser.username}</p>
               </div>
               <Badge variant={currentUser.role === "admin" ? "default" : "secondary"} className="text-xs">
