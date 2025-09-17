@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { useStore } from "@/lib/store"
 import {
   Zap,
@@ -23,18 +24,10 @@ import {
   Package,
   CreditCard,
   AlertCircle,
+  Save,
+  Eye,
+  EyeOff,
 } from "lucide-react"
-
-interface SumUpConfig {
-  clientId: string
-  clientSecret: string
-  accessToken?: string
-  refreshToken?: string
-  isConnected: boolean
-  lastSync?: string
-  autoSync: boolean
-  syncInterval: number // en minutes
-}
 
 interface SyncStats {
   products: number
@@ -46,64 +39,110 @@ interface SyncStats {
 
 export function SumUpIntegration() {
   const { settings, updateSettings } = useStore()
-  const [config, setConfig] = useState<SumUpConfig>({
-    clientId: settings.sumupClientId || "",
-    clientSecret: settings.sumupClientSecret || "",
-    accessToken: settings.sumupAccessToken,
-    refreshToken: settings.sumupRefreshToken,
-    isConnected: !!settings.sumupAccessToken,
-    lastSync: settings.sumupLastSync,
-    autoSync: settings.sumupAutoSync || false,
-    syncInterval: settings.sumupSyncInterval || 60,
-  })
+
+  // États locaux pour la configuration
+  const [clientId, setClientId] = useState(settings.sumupClientId || "")
+  const [clientSecret, setClientSecret] = useState(settings.sumupClientSecret || "")
+  const [showCredentials, setShowCredentials] = useState(false)
+  const [autoSync, setAutoSync] = useState(settings.sumupAutoSync || false)
+  const [syncInterval, setSyncInterval] = useState(settings.sumupSyncInterval || 60)
 
   const [syncStats, setSyncStats] = useState<SyncStats>({
     products: 0,
     transactions: 0,
-    lastSync: config.lastSync || "",
+    lastSync: settings.sumupLastSync || "",
     isLoading: false,
     progress: 0,
   })
 
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [isConnecting, setIsConnecting] = useState(false)
+
+  // Charger les données au démarrage
+  useEffect(() => {
+    console.log("🔄 Chargement des paramètres SumUp:", settings)
+    setClientId(settings.sumupClientId || "")
+    setClientSecret(settings.sumupClientSecret || "")
+    setAutoSync(settings.sumupAutoSync || false)
+    setSyncInterval(settings.sumupSyncInterval || 60)
+  }, [settings])
 
   // Sauvegarder la configuration
   const saveConfig = () => {
-    updateSettings({
-      sumupClientId: config.clientId,
-      sumupClientSecret: config.clientSecret,
-      sumupAccessToken: config.accessToken,
-      sumupRefreshToken: config.refreshToken,
-      sumupLastSync: config.lastSync,
-      sumupAutoSync: config.autoSync,
-      sumupSyncInterval: config.syncInterval,
+    console.log("💾 Sauvegarde de la configuration SumUp:", {
+      clientId,
+      clientSecret: clientSecret ? "***" : "",
+      autoSync,
+      syncInterval,
     })
-    setSuccess("Configuration SumUp sauvegardée")
+
+    updateSettings({
+      sumupClientId: clientId,
+      sumupClientSecret: clientSecret,
+      sumupAutoSync: autoSync,
+      sumupSyncInterval: syncInterval,
+    })
+
+    setSuccess("Configuration SumUp sauvegardée avec succès !")
     setTimeout(() => setSuccess(""), 3000)
   }
 
+  // Vérifier si connecté
+  const isConnected = !!settings.sumupAccessToken
+
   // Connexion OAuth SumUp
   const connectToSumUp = () => {
-    if (!config.clientId) {
-      setError("Veuillez d'abord configurer votre Client ID")
+    if (!clientId.trim()) {
+      setError("Veuillez d'abord saisir et sauvegarder votre Client ID")
       return
     }
 
-    const redirectUri = `${window.location.origin}/api/sumup/callback`
+    if (!clientSecret.trim()) {
+      setError("Veuillez d'abord saisir et sauvegarder votre Client Secret")
+      return
+    }
+
+    setIsConnecting(true)
+    setError("")
+
+    const redirectUri = `https://gestion.petit-ruban.fr/api/sumup/callback`
     const scope = "transactions.history payments user.app-settings user.profile_readonly"
     const state = Math.random().toString(36).substring(7)
 
-    const authUrl = `https://api.sumup.com/authorize?response_type=code&client_id=${config.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`
+    const authUrl = `https://api.sumup.com/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`
 
-    console.log("🔄 Ouverture de la popup SumUp:", authUrl)
+    console.log("🔄 Ouverture de la popup SumUp:", {
+      clientId,
+      redirectUri,
+      scope,
+      state,
+    })
 
     // Ouvrir popup pour l'autorisation
-    const popup = window.open(authUrl, "sumup-auth", "width=600,height=700,scrollbars=yes,resizable=yes")
+    const popup = window.open(
+      authUrl,
+      "sumup-auth",
+      "width=600,height=700,scrollbars=yes,resizable=yes,left=" +
+        (window.screen.width / 2 - 300) +
+        ",top=" +
+        (window.screen.height / 2 - 350),
+    )
+
+    if (!popup) {
+      setError("Impossible d'ouvrir la popup. Vérifiez que les popups ne sont pas bloquées.")
+      setIsConnecting(false)
+      return
+    }
 
     // Écouter le message de callback
     const handleMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return
+      console.log("📨 Message reçu:", event.data)
+
+      if (event.origin !== window.location.origin) {
+        console.warn("⚠️ Message ignoré - origine différente:", event.origin)
+        return
+      }
 
       if (event.data.type === "SUMUP_AUTH_SUCCESS") {
         popup?.close()
@@ -114,6 +153,7 @@ export function SumUpIntegration() {
           // Échanger le code contre un access token
           const requestId = `exchange-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
+          console.log("🔄 Échange du code pour un token...")
           const response = await fetch("/api/sumup/token", {
             method: "POST",
             headers: {
@@ -122,20 +162,22 @@ export function SumUpIntegration() {
             },
             body: JSON.stringify({
               code,
-              clientId: config.clientId,
-              clientSecret: config.clientSecret,
+              clientId,
+              clientSecret,
             }),
           })
 
           const data = await response.json()
+          console.log("📥 Réponse token:", data)
 
           if (data.success) {
-            setConfig((prev) => ({
-              ...prev,
-              accessToken: data.accessToken,
-              refreshToken: data.refreshToken,
-              isConnected: true,
-            }))
+            // Sauvegarder les tokens
+            updateSettings({
+              sumupAccessToken: data.accessToken,
+              sumupRefreshToken: data.refreshToken,
+              sumupLastSync: new Date().toISOString(),
+            })
+
             setSuccess("Connexion à SumUp réussie !")
             setError("")
 
@@ -147,11 +189,14 @@ export function SumUpIntegration() {
         } catch (err) {
           console.error("❌ Erreur échange token:", err)
           setError("Erreur lors de l'échange du token")
+        } finally {
+          setIsConnecting(false)
         }
       } else if (event.data.type === "SUMUP_AUTH_ERROR") {
         popup?.close()
         console.error("❌ Erreur OAuth:", event.data.error, event.data.errorDescription)
         setError(event.data.errorDescription || event.data.error || "Erreur d'autorisation")
+        setIsConnecting(false)
       }
     }
 
@@ -160,26 +205,44 @@ export function SumUpIntegration() {
     // Nettoyer l'écouteur si la popup est fermée manuellement
     const checkClosed = setInterval(() => {
       if (popup?.closed) {
+        console.log("🔄 Popup fermée manuellement")
         window.removeEventListener("message", handleMessage)
         clearInterval(checkClosed)
+        setIsConnecting(false)
       }
     }, 1000)
+
+    // Timeout après 5 minutes
+    setTimeout(
+      () => {
+        if (!popup?.closed) {
+          popup?.close()
+          window.removeEventListener("message", handleMessage)
+          clearInterval(checkClosed)
+          setError("Timeout - Connexion annulée")
+          setIsConnecting(false)
+        }
+      },
+      5 * 60 * 1000,
+    )
   }
 
   // Déconnexion
   const disconnect = () => {
-    setConfig((prev) => ({
-      ...prev,
-      accessToken: undefined,
-      refreshToken: undefined,
-      isConnected: false,
-    }))
-    setSuccess("Déconnecté de SumUp")
+    if (confirm("Êtes-vous sûr de vouloir déconnecter SumUp ?")) {
+      updateSettings({
+        sumupAccessToken: "",
+        sumupRefreshToken: "",
+        sumupLastSync: "",
+      })
+      setSuccess("Déconnecté de SumUp")
+      setSyncStats((prev) => ({ ...prev, products: 0, transactions: 0, lastSync: "" }))
+    }
   }
 
   // Synchronisation manuelle
   const syncData = async (token?: string) => {
-    const accessToken = token || config.accessToken
+    const accessToken = token || settings.sumupAccessToken
     if (!accessToken) {
       setError("Pas de token d'accès disponible")
       return
@@ -189,6 +252,8 @@ export function SumUpIntegration() {
     setError("")
 
     try {
+      console.log("🔄 Début de la synchronisation...")
+
       // Synchroniser les produits
       setSyncStats((prev) => ({ ...prev, progress: 25 }))
       const requestId = `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -200,6 +265,7 @@ export function SumUpIntegration() {
         },
       })
       const productsData = await productsResponse.json()
+      console.log("📦 Produits:", productsData)
 
       // Synchroniser les transactions
       setSyncStats((prev) => ({ ...prev, progress: 75 }))
@@ -210,27 +276,36 @@ export function SumUpIntegration() {
         },
       })
       const transactionsData = await transactionsResponse.json()
+      console.log("💳 Transactions:", transactionsData)
 
       setSyncStats((prev) => ({ ...prev, progress: 100 }))
 
       if (productsData.success && transactionsData.success) {
         const now = new Date().toISOString()
-        setSyncStats({
+        const newStats = {
           products: productsData.products?.length || 0,
           transactions: transactionsData.transactions?.length || 0,
           lastSync: now,
           isLoading: false,
           progress: 100,
-        })
+        }
 
-        setConfig((prev) => ({ ...prev, lastSync: now }))
+        setSyncStats(newStats)
+
+        // Sauvegarder la date de dernière sync
+        updateSettings({ sumupLastSync: now })
+
         setSuccess(
-          `Synchronisation réussie ! ${productsData.products?.length || 0} produits et ${transactionsData.transactions?.length || 0} transactions importés.`,
+          `Synchronisation réussie ! ${newStats.products} produits et ${newStats.transactions} transactions importés.`,
         )
 
         // Sauvegarder les données localement
-        localStorage.setItem("sumup-products", JSON.stringify(productsData.products || []))
-        localStorage.setItem("sumup-transactions", JSON.stringify(transactionsData.transactions || []))
+        if (productsData.products) {
+          localStorage.setItem("sumup-products", JSON.stringify(productsData.products))
+        }
+        if (transactionsData.transactions) {
+          localStorage.setItem("sumup-transactions", JSON.stringify(transactionsData.transactions))
+        }
       } else {
         throw new Error(productsData.error || transactionsData.error || "Erreur lors de la synchronisation")
       }
@@ -243,17 +318,22 @@ export function SumUpIntegration() {
 
   // Synchronisation automatique
   useEffect(() => {
-    if (!config.autoSync || !config.isConnected) return
+    if (!autoSync || !isConnected) return
 
+    console.log(`🔄 Synchronisation automatique activée (${syncInterval} min)`)
     const interval = setInterval(
       () => {
+        console.log("🔄 Synchronisation automatique...")
         syncData()
       },
-      config.syncInterval * 60 * 1000,
+      syncInterval * 60 * 1000,
     )
 
-    return () => clearInterval(interval)
-  }, [config.autoSync, config.isConnected, config.syncInterval])
+    return () => {
+      console.log("🔄 Synchronisation automatique désactivée")
+      clearInterval(interval)
+    }
+  }, [autoSync, isConnected, syncInterval])
 
   return (
     <div className="space-y-6">
@@ -264,9 +344,9 @@ export function SumUpIntegration() {
             Synchronisez automatiquement vos produits et transactions SumUp
           </p>
         </div>
-        <Badge variant={config.isConnected ? "default" : "secondary"} className="flex items-center gap-1">
-          {config.isConnected ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-          {config.isConnected ? "Connecté" : "Déconnecté"}
+        <Badge variant={isConnected ? "default" : "secondary"} className="flex items-center gap-1">
+          {isConnected ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+          {isConnected ? "Connecté" : "Déconnecté"}
         </Badge>
       </div>
 
@@ -294,41 +374,120 @@ export function SumUpIntegration() {
           <CardDescription>Configurez vos identifiants SumUp pour activer l'intégration</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="clientId">Client ID</Label>
+              <Label htmlFor="clientId">Client ID SumUp</Label>
               <Input
                 id="clientId"
-                type="text"
-                value={config.clientId}
-                onChange={(e) => setConfig((prev) => ({ ...prev, clientId: e.target.value }))}
+                type={showCredentials ? "text" : "password"}
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
                 placeholder="sum_xxxxxxxxxxxxxxxxx"
+                className="font-mono"
               />
+              <p className="text-xs text-muted-foreground">Votre Client ID commence par "sum_"</p>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="clientSecret">Client Secret</Label>
+              <Label htmlFor="clientSecret">Client Secret SumUp</Label>
               <Input
                 id="clientSecret"
-                type="password"
-                value={config.clientSecret}
-                onChange={(e) => setConfig((prev) => ({ ...prev, clientSecret: e.target.value }))}
+                type={showCredentials ? "text" : "password"}
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
                 placeholder="Votre Client Secret SumUp"
+                className="font-mono"
               />
+              <p className="text-xs text-muted-foreground">Gardez votre Client Secret confidentiel</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch id="show-credentials" checked={showCredentials} onCheckedChange={setShowCredentials} />
+              <Label htmlFor="show-credentials" className="text-sm">
+                {showCredentials ? (
+                  <>
+                    <EyeOff className="h-4 w-4 inline mr-1" />
+                    Masquer les identifiants
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 inline mr-1" />
+                    Afficher les identifiants
+                  </>
+                )}
+              </Label>
             </div>
           </div>
 
+          <Separator />
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label>Synchronisation automatique</Label>
+                <p className="text-sm text-muted-foreground">
+                  Synchroniser automatiquement les données à intervalles réguliers
+                </p>
+              </div>
+              <Switch checked={autoSync} onCheckedChange={setAutoSync} />
+            </div>
+
+            {autoSync && (
+              <div className="space-y-2">
+                <Label>Intervalle de synchronisation</Label>
+                <Select
+                  value={syncInterval.toString()}
+                  onValueChange={(value) => setSyncInterval(Number.parseInt(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">Toutes les 15 minutes</SelectItem>
+                    <SelectItem value="30">Toutes les 30 minutes</SelectItem>
+                    <SelectItem value="60">Toutes les heures</SelectItem>
+                    <SelectItem value="240">Toutes les 4 heures</SelectItem>
+                    <SelectItem value="1440">Tous les jours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-2">
-            <Button onClick={saveConfig} variant="outline">
-              <Settings className="h-4 w-4 mr-2" />
-              Sauvegarder
+            <Button onClick={saveConfig} className="flex items-center gap-2">
+              <Save className="h-4 w-4" />
+              Sauvegarder la configuration
             </Button>
-            <Button asChild variant="ghost">
+            <Button asChild variant="outline">
               <a href="https://developer.sumup.com/docs/register-app" target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Guide SumUp
               </a>
             </Button>
           </div>
+
+          <Alert>
+            <ExternalLink className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Étapes :</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                <li>
+                  Créez une application sur{" "}
+                  <a href="https://developer.sumup.com" target="_blank" rel="noopener noreferrer" className="underline">
+                    developer.sumup.com
+                  </a>
+                </li>
+                <li>Copiez votre Client ID et Client Secret ci-dessus</li>
+                <li>
+                  Configurez l'URL de redirection :{" "}
+                  <code className="bg-muted px-1 rounded">https://gestion.petit-ruban.fr/api/sumup/callback</code>
+                </li>
+                <li>Cliquez sur "Sauvegarder la configuration"</li>
+                <li>Puis sur "Se connecter à SumUp"</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
 
@@ -342,10 +501,23 @@ export function SumUpIntegration() {
           <CardDescription>Autorisez l'accès à votre compte SumUp</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!config.isConnected ? (
-            <Button onClick={connectToSumUp} disabled={!config.clientId} className="w-full">
-              <Zap className="h-4 w-4 mr-2" />
-              Se connecter à SumUp
+          {!isConnected ? (
+            <Button
+              onClick={connectToSumUp}
+              disabled={!clientId.trim() || !clientSecret.trim() || isConnecting}
+              className="w-full"
+            >
+              {isConnecting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Connexion en cours...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Se connecter à SumUp
+                </>
+              )}
             </Button>
           ) : (
             <div className="space-y-4">
@@ -360,11 +532,25 @@ export function SumUpIntegration() {
               </div>
             </div>
           )}
+
+          {!clientId.trim() && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Veuillez d'abord saisir et sauvegarder votre Client ID</AlertDescription>
+            </Alert>
+          )}
+
+          {!clientSecret.trim() && clientId.trim() && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Veuillez d'abord saisir et sauvegarder votre Client Secret</AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
       {/* Synchronisation */}
-      {config.isConnected && (
+      {isConnected && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -412,82 +598,17 @@ export function SumUpIntegration() {
               </div>
             )}
 
-            {/* Contrôles de synchronisation */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label>Synchronisation automatique</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Synchroniser automatiquement les données à intervalles réguliers
-                  </p>
-                </div>
-                <Switch
-                  checked={config.autoSync}
-                  onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, autoSync: checked }))}
-                />
-              </div>
-
-              {config.autoSync && (
-                <div className="space-y-2">
-                  <Label>Intervalle de synchronisation</Label>
-                  <Select
-                    value={config.syncInterval.toString()}
-                    onValueChange={(value) => setConfig((prev) => ({ ...prev, syncInterval: Number.parseInt(value) }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">Toutes les 15 minutes</SelectItem>
-                      <SelectItem value="30">Toutes les 30 minutes</SelectItem>
-                      <SelectItem value="60">Toutes les heures</SelectItem>
-                      <SelectItem value="240">Toutes les 4 heures</SelectItem>
-                      <SelectItem value="1440">Tous les jours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <Button onClick={() => syncData()} disabled={syncStats.isLoading} className="w-full">
+              {syncStats.isLoading ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
               )}
-
-              <Button onClick={() => syncData()} disabled={syncStats.isLoading} className="w-full">
-                {syncStats.isLoading ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                {syncStats.isLoading ? "Synchronisation..." : "Synchroniser maintenant"}
-              </Button>
-            </div>
+              {syncStats.isLoading ? "Synchronisation..." : "Synchroniser maintenant"}
+            </Button>
           </CardContent>
         </Card>
       )}
-
-      {/* Aide */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Aide et documentation</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Pour configurer l'intégration SumUp, vous devez créer une application sur le portail développeur SumUp.
-          </p>
-          <div className="flex gap-2">
-            <Button asChild variant="outline" size="sm">
-              <a href="https://developer.sumup.com" target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Portail développeur
-              </a>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <a href="https://developer.sumup.com/docs" target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Documentation API
-              </a>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
-
-// Export nommé requis

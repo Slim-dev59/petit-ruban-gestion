@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         client_id: clientId,
         client_secret: clientSecret,
         code: code,
-        redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/sumup/callback`,
+        redirect_uri: "https://gestion.petit-ruban.fr/api/sumup/callback",
       }),
     })
 

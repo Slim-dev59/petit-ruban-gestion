@@ -93,21 +93,21 @@ export async function GET(request: NextRequest) {
                 type: "SUMUP_AUTH_ERROR",
                 error: "${error}",
                 errorDescription: "${errorDescription || ""}"
-              }, window.location.origin);
+              }, "https://gestion.petit-ruban.fr");
             } else if ("${code}") {
               console.log("✅ Code d'autorisation reçu:", "${code}");
               window.opener.postMessage({
                 type: "SUMUP_AUTH_SUCCESS",
                 code: "${code}",
                 state: "${state || ""}"
-              }, window.location.origin);
+              }, "https://gestion.petit-ruban.fr");
             } else {
               console.error("❌ Aucun code ou erreur reçu");
               window.opener.postMessage({
                 type: "SUMUP_AUTH_ERROR",
                 error: "no_code",
                 errorDescription: "Aucun code d'autorisation reçu"
-              }, window.location.origin);
+              }, "https://gestion.petit-ruban.fr");
             }
 
             // Fermer la fenêtre après un délai
