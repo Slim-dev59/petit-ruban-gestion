@@ -96,6 +96,8 @@ export function SumUpIntegration() {
 
     const authUrl = `https://api.sumup.com/authorize?response_type=code&client_id=${config.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`
 
+    console.log("🔄 Ouverture de la popup SumUp:", authUrl)
+
     // Ouvrir popup pour l'autorisation
     const popup = window.open(authUrl, "sumup-auth", "width=600,height=700,scrollbars=yes,resizable=yes")
 
@@ -106,17 +108,22 @@ export function SumUpIntegration() {
       if (event.data.type === "SUMUP_AUTH_SUCCESS") {
         popup?.close()
         const { code } = event.data
+        console.log("✅ Code d'autorisation reçu:", code)
 
         try {
           // Échanger le code contre un access token
+          const requestId = `exchange-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
           const response = await fetch("/api/sumup/token", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-Request-ID": requestId,
+            },
             body: JSON.stringify({
               code,
               clientId: config.clientId,
               clientSecret: config.clientSecret,
-              redirectUri,
             }),
           })
 
@@ -131,15 +138,20 @@ export function SumUpIntegration() {
             }))
             setSuccess("Connexion à SumUp réussie !")
             setError("")
+
+            // Lancer une première synchronisation
+            setTimeout(() => syncData(data.accessToken), 1000)
           } else {
             setError(data.error || "Erreur lors de la connexion")
           }
         } catch (err) {
+          console.error("❌ Erreur échange token:", err)
           setError("Erreur lors de l'échange du token")
         }
       } else if (event.data.type === "SUMUP_AUTH_ERROR") {
         popup?.close()
-        setError(event.data.error || "Erreur d'autorisation")
+        console.error("❌ Erreur OAuth:", event.data.error, event.data.errorDescription)
+        setError(event.data.errorDescription || event.data.error || "Erreur d'autorisation")
       }
     }
 
@@ -166,8 +178,9 @@ export function SumUpIntegration() {
   }
 
   // Synchronisation manuelle
-  const syncData = async () => {
-    if (!config.accessToken) {
+  const syncData = async (token?: string) => {
+    const accessToken = token || config.accessToken
+    if (!accessToken) {
       setError("Pas de token d'accès disponible")
       return
     }
@@ -178,15 +191,23 @@ export function SumUpIntegration() {
     try {
       // Synchroniser les produits
       setSyncStats((prev) => ({ ...prev, progress: 25 }))
+      const requestId = `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
       const productsResponse = await fetch("/api/sumup/products", {
-        headers: { Authorization: `Bearer ${config.accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-Request-ID": requestId,
+        },
       })
       const productsData = await productsResponse.json()
 
       // Synchroniser les transactions
       setSyncStats((prev) => ({ ...prev, progress: 75 }))
       const transactionsResponse = await fetch("/api/sumup/transactions", {
-        headers: { Authorization: `Bearer ${config.accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-Request-ID": requestId,
+        },
       })
       const transactionsData = await transactionsResponse.json()
 
@@ -206,10 +227,15 @@ export function SumUpIntegration() {
         setSuccess(
           `Synchronisation réussie ! ${productsData.products?.length || 0} produits et ${transactionsData.transactions?.length || 0} transactions importés.`,
         )
+
+        // Sauvegarder les données localement
+        localStorage.setItem("sumup-products", JSON.stringify(productsData.products || []))
+        localStorage.setItem("sumup-transactions", JSON.stringify(transactionsData.transactions || []))
       } else {
-        throw new Error("Erreur lors de la synchronisation")
+        throw new Error(productsData.error || transactionsData.error || "Erreur lors de la synchronisation")
       }
     } catch (err) {
+      console.error("❌ Erreur synchronisation:", err)
       setError("Erreur lors de la synchronisation des données")
       setSyncStats((prev) => ({ ...prev, isLoading: false, progress: 0 }))
     }
@@ -276,7 +302,7 @@ export function SumUpIntegration() {
                 type="text"
                 value={config.clientId}
                 onChange={(e) => setConfig((prev) => ({ ...prev, clientId: e.target.value }))}
-                placeholder="Votre Client ID SumUp"
+                placeholder="sum_xxxxxxxxxxxxxxxxx"
               />
             </div>
             <div className="space-y-2">
@@ -422,7 +448,7 @@ export function SumUpIntegration() {
                 </div>
               )}
 
-              <Button onClick={syncData} disabled={syncStats.isLoading} className="w-full">
+              <Button onClick={() => syncData()} disabled={syncStats.isLoading} className="w-full">
                 {syncStats.isLoading ? (
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -463,3 +489,5 @@ export function SumUpIntegration() {
     </div>
   )
 }
+
+// Export nommé requis
