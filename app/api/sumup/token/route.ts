@@ -8,29 +8,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Paramètres manquants" }, { status: 400 })
     }
 
-    const requestId = `token-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const redirectUri = "https://gestion.petit-ruban.fr/api/sumup/callback"
 
+    // Échanger le code d'autorisation contre un access token
     const tokenResponse = await fetch("https://api.sumup.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        "User-Agent": "Boutique-Multi-Createurs/1.0",
-        "X-Request-ID": requestId,
+        "User-Agent": "PetitRuban-Gestion/1.0",
       },
       body: new URLSearchParams({
         grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
         code: code,
-        redirect_uri: "https://gestion.petit-ruban.fr/api/sumup/callback",
+        redirect_uri: redirectUri,
       }),
     })
 
     const tokenData = await tokenResponse.json()
 
     if (!tokenResponse.ok) {
-      console.error("❌ Erreur SumUp token:", tokenData)
+      console.error("Erreur SumUp token:", tokenData)
       return NextResponse.json(
         {
           success: false,
@@ -40,15 +40,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("✅ Token SumUp obtenu avec succès")
     return NextResponse.json({
       success: true,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresIn: tokenData.expires_in,
+      tokenType: tokenData.token_type,
     })
   } catch (error) {
-    console.error("❌ Erreur serveur token:", error)
+    console.error("Erreur serveur token:", error)
     return NextResponse.json({ success: false, error: "Erreur serveur interne" }, { status: 500 })
   }
 }

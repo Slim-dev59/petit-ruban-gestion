@@ -2,64 +2,63 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const authorization = request.headers.get("authorization")
-    const requestId = request.headers.get("x-request-id") || `transactions-${Date.now()}`
+    const authHeader = request.headers.get("authorization")
 
-    if (!authorization) {
-      return NextResponse.json({ success: false, error: "Token d'autorisation manquant" }, { status: 401 })
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, error: "Token d'accès manquant" }, { status: 401 })
     }
 
-    const accessToken = authorization.replace("Bearer ", "")
+    const accessToken = authHeader.replace("Bearer ", "")
 
-    console.log("🔄 Récupération des transactions SumUp...")
-
-    // Récupérer les transactions du mois en cours
+    // Paramètres pour récupérer les transactions du mois en cours
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
     const params = new URLSearchParams({
       limit: "100",
-      oldest: startOfMonth.toISOString(),
-      newest: endOfMonth.toISOString(),
+      order: "descending",
+      from_date: startOfMonth.toISOString().split("T")[0],
+      to_date: endOfMonth.toISOString().split("T")[0],
     })
 
-    const response = await fetch(`https://api.sumup.com/v0.1/me/transactions/history?${params}`, {
+    // Récupérer les transactions depuis l'API SumUp
+    const transactionsResponse = await fetch(`https://api.sumup.com/v0.1/me/transactions/history?${params}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
-        "User-Agent": "Boutique-Multi-Createurs/1.0",
-        "X-Request-ID": requestId,
+        "User-Agent": "PetitRuban-Gestion/1.0",
+        "X-Request-ID": request.headers.get("x-request-id") || `transactions-${Date.now()}`,
       },
     })
 
-    const data = await response.json()
+    if (!transactionsResponse.ok) {
+      const errorData = await transactionsResponse.json().catch(() => ({}))
+      console.error("Erreur API SumUp transactions:", errorData)
 
-    if (!response.ok) {
-      console.error("❌ Erreur API SumUp transactions:", data)
       return NextResponse.json(
         {
           success: false,
-          error: data.error_description || data.message || "Erreur lors de la récupération des transactions",
+          error: errorData.message || `Erreur API SumUp: ${transactionsResponse.status}`,
         },
-        { status: response.status },
+        { status: transactionsResponse.status },
       )
     }
 
-    console.log("✅ Transactions SumUp récupérées:", data.length || 0)
+    const transactionsData = await transactionsResponse.json()
 
     return NextResponse.json({
       success: true,
-      transactions: data || [],
-      count: data?.length || 0,
+      transactions: transactionsData.data || [],
+      total: transactionsData.data?.length || 0,
       period: {
-        start: startOfMonth.toISOString(),
-        end: endOfMonth.toISOString(),
+        from: startOfMonth.toISOString().split("T")[0],
+        to: endOfMonth.toISOString().split("T")[0],
       },
     })
   } catch (error) {
-    console.error("❌ Erreur serveur transactions:", error)
+    console.error("Erreur serveur transactions:", error)
     return NextResponse.json({ success: false, error: "Erreur serveur interne" }, { status: 500 })
   }
 }

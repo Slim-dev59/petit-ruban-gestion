@@ -2,49 +2,47 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const authorization = request.headers.get("authorization")
-    const requestId = request.headers.get("x-request-id") || `products-${Date.now()}`
+    const authHeader = request.headers.get("authorization")
 
-    if (!authorization) {
-      return NextResponse.json({ success: false, error: "Token d'autorisation manquant" }, { status: 401 })
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, error: "Token d'accès manquant" }, { status: 401 })
     }
 
-    const accessToken = authorization.replace("Bearer ", "")
+    const accessToken = authHeader.replace("Bearer ", "")
 
-    console.log("🔄 Récupération des produits SumUp...")
-
-    const response = await fetch("https://api.sumup.com/v0.1/me/products", {
+    // Récupérer les produits depuis l'API SumUp
+    const productsResponse = await fetch("https://api.sumup.com/v0.1/me/catalog/products", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
-        "User-Agent": "Boutique-Multi-Createurs/1.0",
-        "X-Request-ID": requestId,
+        "User-Agent": "PetitRuban-Gestion/1.0",
+        "X-Request-ID": request.headers.get("x-request-id") || `products-${Date.now()}`,
       },
     })
 
-    const data = await response.json()
+    if (!productsResponse.ok) {
+      const errorData = await productsResponse.json().catch(() => ({}))
+      console.error("Erreur API SumUp products:", errorData)
 
-    if (!response.ok) {
-      console.error("❌ Erreur API SumUp products:", data)
       return NextResponse.json(
         {
           success: false,
-          error: data.error_description || data.message || "Erreur lors de la récupération des produits",
+          error: errorData.message || `Erreur API SumUp: ${productsResponse.status}`,
         },
-        { status: response.status },
+        { status: productsResponse.status },
       )
     }
 
-    console.log("✅ Produits SumUp récupérés:", data.length || 0)
+    const productsData = await productsResponse.json()
 
     return NextResponse.json({
       success: true,
-      products: data || [],
-      count: data?.length || 0,
+      products: productsData.data || [],
+      total: productsData.data?.length || 0,
     })
   } catch (error) {
-    console.error("❌ Erreur serveur products:", error)
+    console.error("Erreur serveur products:", error)
     return NextResponse.json({ success: false, error: "Erreur serveur interne" }, { status: 500 })
   }
 }
