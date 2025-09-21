@@ -137,3 +137,6 @@ export const useAuth = create<AuthState>()(
     },
   ),
 )
+
+// Export alias pour compatibilité
+export const useAuthStore = useAuth
