@@ -16,6 +16,7 @@ interface AuthState {
   users: User[]
   currentUser: User | null
   sessionExpiry: number | null
+  isAuthenticated: boolean
   login: (username: string, password: string) => boolean
   logout: () => void
   addUser: (username: string, password: string, name: string, role: "admin" | "user") => boolean
@@ -23,9 +24,10 @@ interface AuthState {
   deleteUser: (userId: string) => boolean
   extendSession: () => void
   isSessionValid: () => boolean
+  checkSession: () => boolean
 }
 
-// Stockage des mots de passe - Comptes simplifiés
+// Stockage des mots de passe
 const passwords: Record<string, string> = {
   admin: "admin",
   setup: "setup",
@@ -60,37 +62,50 @@ export const useAuth = create<AuthState>()(
       ],
       currentUser: null,
       sessionExpiry: null,
+      isAuthenticated: false,
 
       login: (username: string, password: string) => {
-        console.log("🔐 Tentative de connexion:", username)
+        console.log("=== LOGIN ATTEMPT ===")
+        console.log("Username:", username)
+        console.log("Password:", password)
 
         const users = get().users
         const user = users.find((u) => u.username === username)
 
-        console.log("Utilisateur trouvé:", user)
-        console.log("Mot de passe attendu:", passwords[username])
+        console.log("User found:", user)
+        console.log("Expected password:", passwords[username])
 
         if (user && passwords[username] === password) {
-          const sessionExpiry = Date.now() + 24 * 60 * 60 * 1000 // 24 heures
+          const sessionExpiry = Date.now() + 24 * 60 * 60 * 1000
           const updatedUser = { ...user, lastLogin: new Date().toISOString() }
 
-          set((state) => ({
-            users: state.users.map((u) => (u.id === user.id ? updatedUser : u)),
+          console.log("Login successful, setting state...")
+
+          set({
+            users: get().users.map((u) => (u.id === user.id ? updatedUser : u)),
             currentUser: updatedUser,
             sessionExpiry,
-          }))
+            isAuthenticated: true,
+          })
 
-          console.log("✅ Connexion réussie")
+          console.log("State updated successfully")
+          console.log("Current user:", get().currentUser)
+          console.log("Is authenticated:", get().isAuthenticated)
+
           return true
         }
 
-        console.log("❌ Connexion échouée")
+        console.log("Login failed - invalid credentials")
         return false
       },
 
       logout: () => {
-        console.log("🚪 Déconnexion")
-        set({ currentUser: null, sessionExpiry: null })
+        console.log("=== LOGOUT ===")
+        set({
+          currentUser: null,
+          sessionExpiry: null,
+          isAuthenticated: false,
+        })
       },
 
       addUser: (username: string, password: string, name: string, role: "admin" | "user") => {
@@ -160,12 +175,29 @@ export const useAuth = create<AuthState>()(
         if (currentUser) {
           const sessionExpiry = Date.now() + 24 * 60 * 60 * 1000
           set({ sessionExpiry })
+          console.log("Session extended until:", new Date(sessionExpiry))
         }
       },
 
       isSessionValid: () => {
-        const { currentUser, sessionExpiry } = get()
-        return currentUser !== null && sessionExpiry !== null && Date.now() < sessionExpiry
+        const { currentUser, sessionExpiry, isAuthenticated } = get()
+        const valid = isAuthenticated && currentUser !== null && sessionExpiry !== null && Date.now() < sessionExpiry
+
+        if (!valid) {
+          console.log("Session invalid:")
+          console.log("- Authenticated:", isAuthenticated)
+          console.log("- Current user:", currentUser)
+          console.log("- Expiry:", sessionExpiry ? new Date(sessionExpiry) : null)
+          console.log("- Now:", new Date())
+        }
+
+        return valid
+      },
+
+      checkSession: () => {
+        const valid = get().isSessionValid()
+        console.log("Check session result:", valid)
+        return valid
       },
     }),
     {
@@ -174,10 +206,11 @@ export const useAuth = create<AuthState>()(
         users: state.users,
         currentUser: state.currentUser,
         sessionExpiry: state.sessionExpiry,
+        isAuthenticated: state.isAuthenticated,
       }),
     },
   ),
 )
 
-// Export alias pour compatibilité
+// Export alias
 export const useAuthStore = useAuth

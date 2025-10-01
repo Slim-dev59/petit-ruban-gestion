@@ -39,21 +39,28 @@ export function LoginForm() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const login = useAuth((state) => state.login)
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
 
+    console.log("=== FORM SUBMIT ===")
+    console.log("Attempting login with:", username.trim(), password)
+
     try {
       const success = login(username.trim(), password)
+      console.log("Login result:", success)
 
       if (!success) {
         setError("Nom d'utilisateur ou mot de passe incorrect")
+        console.log("Setting error message")
+      } else {
+        console.log("Login successful, should redirect now")
       }
     } catch (err) {
-      console.error("Erreur de connexion:", err)
+      console.error("Login error:", err)
       setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
@@ -61,6 +68,9 @@ export function LoginForm() {
   }
 
   const quickLogin = (user: string, pass: string) => {
+    console.log("=== QUICK LOGIN ===")
+    console.log("Quick login with:", user, pass)
+
     setUsername(user)
     setPassword(pass)
     setError("")
@@ -68,6 +78,8 @@ export function LoginForm() {
 
     setTimeout(() => {
       const success = login(user, pass)
+      console.log("Quick login result:", success)
+
       if (!success) {
         setError("Échec de la connexion rapide")
       }
@@ -76,8 +88,11 @@ export function LoginForm() {
   }
 
   const resetAuth = () => {
+    console.log("=== RESET AUTH ===")
     localStorage.removeItem("auth-storage")
+    localStorage.removeItem("boutique-storage")
     sessionStorage.clear()
+    console.log("Storage cleared, reloading...")
     window.location.reload()
   }
 
@@ -170,8 +185,9 @@ export function LoginForm() {
                   <div className="text-sm">
                     <div className="font-bold text-slate-900">{account.username}</div>
                     <div className="text-slate-600 text-xs">
-                      Mot de passe: <span className="font-mono">{account.password}</span>
+                      Mot de passe: <span className="font-mono font-bold">{account.password}</span>
                     </div>
+                    <div className="text-slate-500 text-xs">{account.role}</div>
                   </div>
                   <Button
                     size="sm"
@@ -190,9 +206,9 @@ export function LoginForm() {
 
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             onClick={resetAuth}
-            className="w-full text-slate-600 hover:text-slate-900"
+            className="w-full text-slate-600 hover:text-slate-900 border-slate-300 bg-transparent"
             size="sm"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -200,7 +216,7 @@ export function LoginForm() {
           </Button>
 
           <div className="text-center text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
-            🔒 Session sécurisée de 24 heures
+            🔒 Session sécurisée de 24 heures • Ouvrez la console (F12) pour voir les logs
           </div>
         </CardContent>
       </Card>
