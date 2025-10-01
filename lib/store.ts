@@ -44,7 +44,7 @@ interface Payment {
 interface Participation {
   id: string
   createur: string
-  mois: string // Format YYYY-MM
+  mois: string
   montantLoyer: number
   dateEcheance: string
   statut: "en_attente" | "paye" | "en_retard"
@@ -104,10 +104,8 @@ interface Store {
   settings: Settings
   importHistory: ImportHistory[]
 
-  // Gestion des mois
   setCurrentMonth: (month: string) => void
   getCurrentMonthData: () => MonthlyData
-
   addCreator: (name: string) => void
   removeCreator: (name: string) => void
   removeAllCreators: () => void
@@ -120,25 +118,17 @@ interface Store {
   resetAllData: () => void
   clearStockData: () => void
   clearSalesData: (month?: string) => void
-
-  // Gestion des ventes
   updateSale: (saleId: string, updates: Partial<Sale>, month?: string) => void
   getSaleById: (saleId: string, month?: string) => Sale | undefined
-
-  // Gestion des ventes en attente
   addPendingSales: (sales: PendingSale[], month?: string) => void
   getPendingSales: (month?: string) => PendingSale[]
   updatePendingSale: (saleId: string, updates: Partial<PendingSale>, month?: string) => void
   removePendingSale: (saleId: string, month?: string) => void
   clearPendingSales: (month?: string) => void
   getTotalPendingSales: () => number
-
-  // Gestion de l'historique des imports
   addImportHistory: (importData: Omit<ImportHistory, "id" | "importDate">) => void
   getImportHistory: () => ImportHistory[]
   removeImportHistory: (importId: string) => void
-
-  // Gestion des paiements
   addPayment: (payment: Omit<Payment, "id" | "dateCreation">, month?: string) => void
   getPaymentsForCreator: (creator: string, month?: string) => Payment[]
   getAllPayments: () => Payment[]
@@ -151,18 +141,14 @@ interface Store {
   ) => void
   getAllSalesForCreator: (creator: string, month?: string) => Sale[]
   getPaidSalesForCreator: (creator: string, month?: string) => Sale[]
-
-  // Gestion des participations (loyers)
   addParticipation: (participation: Omit<Participation, "id" | "dateCreation">) => void
   updateParticipation: (participationId: string, updates: Partial<Participation>) => void
   deleteParticipation: (participationId: string) => void
   getParticipationsForCreator: (creator: string, month?: string) => Participation[]
   getAllParticipations: () => Participation[]
   generateMonthlyParticipations: (month: string) => void
-
-  // Nouvelles fonctions pour les données globales
-  salesData: Sale[] // Données du mois courant pour compatibilité
-  payments: Payment[] // Paiements du mois courant pour compatibilité
+  salesData: Sale[]
+  payments: Payment[]
 }
 
 const getDefaultMonthlyData = (): MonthlyData => ({
@@ -172,24 +158,25 @@ const getDefaultMonthlyData = (): MonthlyData => ({
   pendingSales: [],
 })
 
+const getDefaultSettings = (): Settings => ({
+  commissionRate: 1.75,
+  shopName: "Ma Boutique Multi-Créateurs",
+  shopSubtitle: "Gestion des ventes et créateurs",
+  logoUrl: "",
+  autoApplyCommission: true,
+  loyerMensuel: 50,
+})
+
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
       creators: [],
       stockData: [],
       monthlyData: {},
-      currentMonth: new Date().toISOString().slice(0, 7), // Format YYYY-MM
+      currentMonth: new Date().toISOString().slice(0, 7),
       importHistory: [],
-      settings: {
-        commissionRate: 1.75,
-        shopName: "Ma Boutique Multi-Créateurs",
-        shopSubtitle: "Gestion des ventes et créateurs",
-        logoUrl: "",
-        autoApplyCommission: true,
-        loyerMensuel: 50,
-      },
+      settings: getDefaultSettings(),
 
-      // Propriétés calculées pour compatibilité
       get salesData() {
         const { monthlyData, currentMonth } = get()
         return monthlyData[currentMonth]?.salesData || []
@@ -210,6 +197,7 @@ export const useStore = create<Store>()(
       },
 
       addCreator: (name) => {
+        if (!name || typeof name !== "string") return
         set((state) => ({
           creators: [...state.creators.filter((c) => c !== name), name],
         }))
@@ -230,6 +218,11 @@ export const useStore = create<Store>()(
         const salesWithStatus = data.map((sale, index) => ({
           ...sale,
           id: sale.id || `sale_${Date.now()}_${index}`,
+          date: sale.date || new Date().toISOString().split("T")[0],
+          description: sale.description || "",
+          prix: sale.prix || "0",
+          paiement: sale.paiement || "",
+          createur: sale.createur || "",
           statut: "active" as const,
         }))
 
@@ -245,13 +238,9 @@ export const useStore = create<Store>()(
             },
           }
         })
-
-        console.log(`${salesWithStatus.length} ventes importées pour ${targetMonth}`)
       },
 
       importStockData: (data) => {
-        console.log("Import stock data - données reçues:", data.length)
-
         const processedData: StockItem[] = data.map((item: any) => ({
           createur: item.createur || "",
           article: item.article || "",
@@ -263,16 +252,12 @@ export const useStore = create<Store>()(
           image: item.image || "",
         }))
 
-        // Ajouter automatiquement les créateurs trouvés
-        const creatorsFound = [...new Set(processedData.map((item) => item.createur))]
+        const creatorsFound = [...new Set(processedData.map((item) => item.createur).filter(Boolean))]
         creatorsFound.forEach((creator) => {
           if (creator && !get().creators.includes(creator)) {
             get().addCreator(creator)
           }
         })
-
-        console.log("Créateurs ajoutés:", creatorsFound)
-        console.log("Articles traités:", processedData.length)
 
         set({ stockData: processedData })
       },
@@ -289,7 +274,9 @@ export const useStore = create<Store>()(
       },
 
       updateSettings: (settings) => {
-        set({ settings })
+        set((state) => ({
+          settings: { ...state.settings, ...settings },
+        }))
       },
 
       updateCreatorMapping: (mapping) => {
@@ -298,10 +285,7 @@ export const useStore = create<Store>()(
             ...item,
             createur: mapping[item.createur] || item.createur,
           }))
-
-          return {
-            stockData: updatedStockData,
-          }
+          return { stockData: updatedStockData }
         })
       },
 
@@ -311,14 +295,7 @@ export const useStore = create<Store>()(
           stockData: [],
           monthlyData: {},
           importHistory: [],
-          settings: {
-            commissionRate: 1.75,
-            shopName: "Ma Boutique Multi-Créateurs",
-            shopSubtitle: "Gestion des ventes et créateurs",
-            logoUrl: "",
-            autoApplyCommission: true,
-            loyerMensuel: 50,
-          },
+          settings: getDefaultSettings(),
         })
       },
 
@@ -342,7 +319,6 @@ export const useStore = create<Store>()(
         })
       },
 
-      // Gestion des ventes
       updateSale: (saleId: string, updates: Partial<Sale>, month?: string) => {
         const targetMonth = month || get().currentMonth
         set((state) => {
@@ -366,7 +342,6 @@ export const useStore = create<Store>()(
         return monthData.salesData.find((sale) => sale.id === saleId)
       },
 
-      // Gestion des ventes en attente
       addPendingSales: (sales: PendingSale[], month?: string) => {
         const targetMonth = month || get().currentMonth
         set((state) => {
@@ -445,7 +420,6 @@ export const useStore = create<Store>()(
         }, 0)
       },
 
-      // Gestion de l'historique des imports
       addImportHistory: (importData) => {
         const newImport: ImportHistory = {
           ...importData,
@@ -468,7 +442,6 @@ export const useStore = create<Store>()(
         }))
       },
 
-      // Gestion des paiements
       addPayment: (paymentData, month) => {
         const targetMonth = month || get().currentMonth
         const payment: Payment = {
@@ -534,7 +507,6 @@ export const useStore = create<Store>()(
             const paymentIndex = monthData.payments.findIndex((p) => p.id === paymentId)
 
             if (paymentIndex !== -1) {
-              // Remettre les ventes en statut "active"
               const payment = monthData.payments[paymentIndex]
               updatedMonthlyData[month] = {
                 ...monthData,
@@ -596,9 +568,6 @@ export const useStore = create<Store>()(
             },
           }
         })
-
-        console.log(`Paiement effectué pour ${creator} (${targetMonth}): ${netAmount.toFixed(2)}€`)
-        console.log(`${creatorSales.length} ventes archivées sous le paiement ${paymentId}`)
       },
 
       getAllSalesForCreator: (creator, month) => {
@@ -615,7 +584,6 @@ export const useStore = create<Store>()(
         return monthData.salesData.filter((sale) => sale.createur === creator && sale.statut === "payee")
       },
 
-      // Gestion des participations (loyers)
       addParticipation: (participationData) => {
         const participation: Participation = {
           ...participationData,
@@ -696,8 +664,6 @@ export const useStore = create<Store>()(
       generateMonthlyParticipations: (month: string) => {
         const { creators, settings } = get()
         const monthData = get().monthlyData[month] || getDefaultMonthlyData()
-
-        // Vérifier si les participations existent déjà pour ce mois
         const existingParticipations = monthData.participations
 
         creators.forEach((creator) => {
