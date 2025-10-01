@@ -25,11 +25,9 @@ interface AuthState {
   isSessionValid: () => boolean
 }
 
-// Stockage sécurisé des mots de passe (en production, utiliser une vraie base de données)
+// Stockage sécurisé des mots de passe (en production, utilisez un hash)
 const passwords: Record<string, string> = {
-  admin: "admin",
-  setup: "setup",
-  demo: "demo",
+  setup: "Setup2024!",
 }
 
 export const useAuth = create<AuthState>()(
@@ -37,24 +35,10 @@ export const useAuth = create<AuthState>()(
     (set, get) => ({
       users: [
         {
-          id: "admin-user",
-          username: "admin",
-          name: "Administrateur",
-          role: "admin",
-          createdAt: new Date().toISOString(),
-        },
-        {
           id: "setup-user",
           username: "setup",
           name: "Utilisateur de configuration",
           role: "admin",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "demo-user",
-          username: "demo",
-          name: "Utilisateur de démonstration",
-          role: "user",
           createdAt: new Date().toISOString(),
         },
       ],
@@ -62,39 +46,25 @@ export const useAuth = create<AuthState>()(
       sessionExpiry: null,
 
       login: (username: string, password: string) => {
-        console.log("=== TENTATIVE DE CONNEXION ===")
-        console.log("Username:", username)
-        console.log("Password:", password)
-
         const users = get().users
         const user = users.find((u) => u.username === username)
 
-        console.log("Utilisateur trouvé:", user)
-        console.log("Mot de passe stocké:", passwords[username])
-        console.log("Mots de passe disponibles:", Object.keys(passwords))
-
         if (user && passwords[username] === password) {
           const sessionExpiry = Date.now() + 8 * 60 * 60 * 1000 // 8 heures
-          const updatedUser = { ...user, lastLogin: new Date().toISOString() }
 
-          console.log("Connexion réussie, création de la session")
-          console.log("Session expire à:", new Date(sessionExpiry))
-
+          // Mettre à jour la dernière connexion
           set((state) => ({
-            users: state.users.map((u) => (u.id === user.id ? updatedUser : u)),
-            currentUser: updatedUser,
+            users: state.users.map((u) => (u.id === user.id ? { ...u, lastLogin: new Date().toISOString() } : u)),
+            currentUser: { ...user, lastLogin: new Date().toISOString() },
             sessionExpiry,
           }))
 
           return true
         }
-
-        console.log("Connexion échouée - identifiants incorrects")
         return false
       },
 
       logout: () => {
-        console.log("Déconnexion de l'utilisateur")
         set({ currentUser: null, sessionExpiry: null })
       },
 
@@ -130,12 +100,14 @@ export const useAuth = create<AuthState>()(
 
         const user = users[userIndex]
 
+        // Mettre à jour le mot de passe si fourni
         if (updates.password) {
           passwords[user.username] = updates.password
         }
 
+        // Mettre à jour les informations utilisateur
         const updatedUser = { ...user, ...updates }
-        delete (updatedUser as any).password
+        delete (updatedUser as any).password // Retirer le mot de passe des données utilisateur
 
         set((state) => ({
           users: state.users.map((u) => (u.id === userId ? updatedUser : u)),
@@ -151,6 +123,7 @@ export const useAuth = create<AuthState>()(
 
         if (!user) return false
 
+        // Supprimer le mot de passe
         delete passwords[user.username]
 
         set((state) => ({
@@ -163,24 +136,14 @@ export const useAuth = create<AuthState>()(
       extendSession: () => {
         const currentUser = get().currentUser
         if (currentUser) {
-          const sessionExpiry = Date.now() + 8 * 60 * 60 * 1000
-          console.log("Extension de session jusqu'à:", new Date(sessionExpiry))
+          const sessionExpiry = Date.now() + 8 * 60 * 60 * 1000 // 8 heures
           set({ sessionExpiry })
         }
       },
 
       isSessionValid: () => {
         const { currentUser, sessionExpiry } = get()
-        const isValid = currentUser !== null && sessionExpiry !== null && Date.now() < sessionExpiry
-
-        if (!isValid) {
-          console.log("Session invalide:")
-          console.log("- Utilisateur:", currentUser)
-          console.log("- Expiration:", sessionExpiry ? new Date(sessionExpiry) : null)
-          console.log("- Maintenant:", new Date())
-        }
-
-        return isValid
+        return currentUser !== null && sessionExpiry !== null && Date.now() < sessionExpiry
       },
     }),
     {

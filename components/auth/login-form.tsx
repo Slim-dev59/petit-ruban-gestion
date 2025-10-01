@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth"
-import { Lock, User, AlertCircle, Eye, EyeOff, Shield, RefreshCw } from "lucide-react"
+import { Lock, User, AlertCircle, Eye, EyeOff, Shield } from "lucide-react"
 
 export function LoginForm() {
   const [username, setUsername] = useState("")
@@ -16,7 +17,6 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [showCredentials, setShowCredentials] = useState(true) // Afficher par défaut
 
   const login = useAuth((state) => state.login)
 
@@ -26,46 +26,16 @@ export function LoginForm() {
     setError("")
 
     try {
-      console.log("=== FORMULAIRE DE CONNEXION ===")
-      console.log("Tentative avec:", username.trim(), password)
-
       const success = login(username.trim(), password)
 
       if (!success) {
         setError("Nom d'utilisateur ou mot de passe incorrect")
-        console.log("Échec de la connexion")
-      } else {
-        console.log("Connexion réussie depuis le formulaire")
       }
     } catch (err) {
-      console.error("Erreur de connexion:", err)
       setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const quickLogin = (user: string, pass: string) => {
-    console.log("=== CONNEXION RAPIDE ===")
-    console.log("Connexion rapide avec:", user, pass)
-
-    setUsername(user)
-    setPassword(pass)
-    setError("")
-
-    const success = login(user, pass)
-    if (!success) {
-      setError("Échec de la connexion rapide")
-      console.log("Échec de la connexion rapide")
-    } else {
-      console.log("Connexion rapide réussie")
-    }
-  }
-
-  const resetAuth = () => {
-    // Nettoyer le localStorage pour forcer une réinitialisation
-    localStorage.removeItem("auth-storage")
-    window.location.reload()
   }
 
   return (
@@ -84,20 +54,6 @@ export function LoginForm() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Bouton de réinitialisation en cas de problème */}
-          <div className="text-center">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={resetAuth}
-              className="text-slate-500 hover:text-slate-700"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Réinitialiser l'authentification
-            </Button>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-slate-900 font-semibold">
@@ -159,70 +115,6 @@ export function LoginForm() {
               {isLoading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
-
-          {/* Comptes de test toujours visibles */}
-          <div className="space-y-3">
-            <div className="text-center">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowCredentials(!showCredentials)}
-                className="w-full text-slate-900"
-              >
-                {showCredentials ? "Masquer" : "Afficher"} les comptes de test
-              </Button>
-            </div>
-
-            {showCredentials && (
-              <div className="space-y-2 p-4 bg-slate-50 rounded-lg border">
-                <p className="text-sm font-medium text-slate-900 mb-3 text-center">🔑 Comptes de test disponibles :</p>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm">
-                    <div className="text-sm text-slate-900">
-                      <div className="font-bold text-blue-600">admin</div>
-                      <div className="text-slate-500">Mot de passe: admin</div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => quickLogin("admin", "admin")}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Connexion
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm">
-                    <div className="text-sm text-slate-900">
-                      <div className="font-bold text-green-600">setup</div>
-                      <div className="text-slate-500">Mot de passe: setup</div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => quickLogin("setup", "setup")}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      Connexion
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm">
-                    <div className="text-sm text-slate-900">
-                      <div className="font-bold text-purple-600">demo</div>
-                      <div className="text-slate-500">Mot de passe: demo</div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => quickLogin("demo", "demo")}
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
-                    >
-                      Connexion
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           <div className="text-center text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
             🔒 Connexion sécurisée avec session de 8 heures
