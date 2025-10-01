@@ -2,47 +2,36 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization")
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ success: false, error: "Token d'accès manquant" }, { status: 401 })
+    const authorization = request.headers.get("authorization")
+    if (!authorization) {
+      return NextResponse.json({ success: false, error: "Token d'accès manquant" })
     }
 
-    const accessToken = authHeader.replace("Bearer ", "")
-
-    // Récupérer les produits depuis l'API SumUp
-    const productsResponse = await fetch("https://api.sumup.com/v0.1/me/catalog/products", {
-      method: "GET",
+    const response = await fetch("https://api.sumup.com/v0.1/me/products", {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-        "User-Agent": "PetitRuban-Gestion/1.0",
-        "X-Request-ID": request.headers.get("x-request-id") || `products-${Date.now()}`,
+        Authorization: authorization,
+        "Content-Type": "application/json",
       },
     })
 
-    if (!productsResponse.ok) {
-      const errorData = await productsResponse.json().catch(() => ({}))
-      console.error("Erreur API SumUp products:", errorData)
+    const data = await response.json()
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: errorData.message || `Erreur API SumUp: ${productsResponse.status}`,
-        },
-        { status: productsResponse.status },
-      )
+    if (response.ok) {
+      return NextResponse.json({
+        success: true,
+        products: data,
+      })
+    } else {
+      return NextResponse.json({
+        success: false,
+        error: data.message || "Erreur lors de la récupération des produits",
+      })
     }
-
-    const productsData = await productsResponse.json()
-
-    return NextResponse.json({
-      success: true,
-      products: productsData.data || [],
-      total: productsData.data?.length || 0,
-    })
   } catch (error) {
-    console.error("Erreur serveur products:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur interne" }, { status: 500 })
+    console.error("Erreur API produits:", error)
+    return NextResponse.json({
+      success: false,
+      error: "Erreur serveur lors de la récupération des produits",
+    })
   }
 }

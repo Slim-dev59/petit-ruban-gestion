@@ -1,52 +1,24 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth"
-import { Eye, EyeOff, LogIn, RefreshCw, AlertCircle, User, Shield, EyeIcon } from "lucide-react"
-
-const testAccounts = [
-  {
-    username: "admin",
-    password: "admin",
-    role: "Administrateur",
-    description: "Accès complet à toutes les fonctionnalités",
-    icon: Shield,
-    color: "bg-red-500",
-  },
-  {
-    username: "setup",
-    password: "setup",
-    role: "Configuration",
-    description: "Accès aux paramètres et configuration",
-    icon: User,
-    color: "bg-blue-500",
-  },
-  {
-    username: "demo",
-    password: "demo",
-    role: "Démonstration",
-    description: "Accès en lecture seule pour la démonstration",
-    icon: EyeIcon,
-    color: "bg-green-500",
-  },
-]
+import { Lock, User, AlertCircle, Eye, EyeOff, Shield, RefreshCw } from "lucide-react"
 
 export function LoginForm() {
-  const { login } = useAuth()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [showCredentials, setShowCredentials] = useState(true) // Afficher par défaut
+
+  const login = useAuth((state) => state.login)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,183 +26,209 @@ export function LoginForm() {
     setError("")
 
     try {
+      console.log("=== FORMULAIRE DE CONNEXION ===")
+      console.log("Tentative avec:", username.trim(), password)
+
       const success = login(username.trim(), password)
+
       if (!success) {
-        setError("Identifiants incorrects. Veuillez réessayer.")
+        setError("Nom d'utilisateur ou mot de passe incorrect")
+        console.log("Échec de la connexion")
+      } else {
+        console.log("Connexion réussie depuis le formulaire")
       }
     } catch (err) {
-      setError("Une erreur est survenue lors de la connexion.")
+      console.error("Erreur de connexion:", err)
+      setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleQuickLogin = (account: (typeof testAccounts)[0]) => {
-    setUsername(account.username)
-    setPassword(account.password)
-    setIsLoading(true)
+  const quickLogin = (user: string, pass: string) => {
+    console.log("=== CONNEXION RAPIDE ===")
+    console.log("Connexion rapide avec:", user, pass)
+
+    setUsername(user)
+    setPassword(pass)
     setError("")
 
-    setTimeout(() => {
-      const success = login(account.username, account.password)
-      if (!success) {
-        setError("Erreur lors de la connexion rapide.")
-      }
-      setIsLoading(false)
-    }, 500)
+    const success = login(user, pass)
+    if (!success) {
+      setError("Échec de la connexion rapide")
+      console.log("Échec de la connexion rapide")
+    } else {
+      console.log("Connexion rapide réussie")
+    }
   }
 
   const resetAuth = () => {
-    localStorage.clear()
-    sessionStorage.clear()
+    // Nettoyer le localStorage pour forcer une réinitialisation
+    localStorage.removeItem("auth-storage")
     window.location.reload()
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <Shield className="h-8 w-8 text-white" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur">
+        <CardHeader className="space-y-4 text-center">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Le Petit Ruban</h1>
-          <p className="text-slate-600">Gestion Multi-Créateurs</p>
-        </div>
-
-        {/* Login Form */}
-        <Card className="backdrop-blur-sm bg-white/80 border-white/20 shadow-xl">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center text-slate-900">Connexion</CardTitle>
-            <CardDescription className="text-center text-slate-600">
-              Connectez-vous à votre espace de gestion
+          <div>
+            <CardTitle className="text-2xl font-bold text-slate-900">Connexion</CardTitle>
+            <CardDescription className="text-slate-600 font-medium">
+              Accédez à votre espace de gestion sécurisé
             </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+          </div>
+        </CardHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-slate-900">
-                  Nom d'utilisateur
-                </Label>
+        <CardContent className="space-y-6">
+          {/* Bouton de réinitialisation en cas de problème */}
+          <div className="text-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={resetAuth}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Réinitialiser l'authentification
+            </Button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username" className="text-slate-900 font-semibold">
+                Nom d'utilisateur
+              </Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
                 <Input
                   id="username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Saisissez votre nom d'utilisateur"
+                  className="pl-10 text-slate-900 border-slate-300 focus:border-blue-500"
+                  placeholder="Entrez votre nom d'utilisateur"
                   required
-                  className="text-slate-900 bg-white/50"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-900">
-                  Mot de passe
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Saisissez votre mot de passe"
-                    required
-                    className="text-slate-900 bg-white/50 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-slate-500" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-slate-500" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Connexion...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Se connecter
-                  </>
-                )}
-              </Button>
-            </form>
-
-            <Separator className="my-6" />
-
-            {/* Quick Login */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-slate-900 text-center">Connexion rapide</p>
-              <div className="grid gap-2">
-                {testAccounts.map((account) => {
-                  const IconComponent = account.icon
-                  return (
-                    <Button
-                      key={account.username}
-                      variant="outline"
-                      onClick={() => handleQuickLogin(account)}
-                      disabled={isLoading}
-                      className="w-full justify-start h-auto p-3 text-left bg-white/50 hover:bg-white/80 border-slate-200"
-                    >
-                      <div className="flex items-center space-x-3 w-full">
-                        <div className={`w-8 h-8 rounded-lg ${account.color} flex items-center justify-center`}>
-                          <IconComponent className="h-4 w-4 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium text-slate-900">{account.username}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {account.role}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-slate-600 truncate">{account.description}</p>
-                        </div>
-                      </div>
-                    </Button>
-                  )
-                })}
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-slate-900 font-semibold">
+                Mot de passe
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10 text-slate-900 border-slate-300 focus:border-blue-500"
+                  placeholder="Entrez votre mot de passe"
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-slate-100"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
 
-            {/* Reset Button */}
+            {error && (
+              <Alert variant="destructive" className="bg-red-50 border-red-200">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-red-800 font-medium">{error}</AlertDescription>
+              </Alert>
+            )}
+
             <Button
-              variant="ghost"
-              onClick={resetAuth}
-              className="w-full text-slate-600 hover:text-slate-900"
-              size="sm"
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-2.5 shadow-lg"
+              disabled={isLoading || !username || !password}
             >
-              <RefreshCw className="mr-2 h-3 w-3" />
-              Réinitialiser l'authentification
+              {isLoading ? "Connexion..." : "Se connecter"}
             </Button>
-          </CardContent>
-        </Card>
+          </form>
 
-        {/* Footer */}
-        <div className="text-center text-sm text-slate-500">
-          <p>© 2024 Le Petit Ruban. Tous droits réservés.</p>
-        </div>
-      </div>
+          {/* Comptes de test toujours visibles */}
+          <div className="space-y-3">
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCredentials(!showCredentials)}
+                className="w-full text-slate-900"
+              >
+                {showCredentials ? "Masquer" : "Afficher"} les comptes de test
+              </Button>
+            </div>
+
+            {showCredentials && (
+              <div className="space-y-2 p-4 bg-slate-50 rounded-lg border">
+                <p className="text-sm font-medium text-slate-900 mb-3 text-center">🔑 Comptes de test disponibles :</p>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm">
+                    <div className="text-sm text-slate-900">
+                      <div className="font-bold text-blue-600">admin</div>
+                      <div className="text-slate-500">Mot de passe: admin</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => quickLogin("admin", "admin")}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Connexion
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm">
+                    <div className="text-sm text-slate-900">
+                      <div className="font-bold text-green-600">setup</div>
+                      <div className="text-slate-500">Mot de passe: setup</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => quickLogin("setup", "setup")}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      Connexion
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm">
+                    <div className="text-sm text-slate-900">
+                      <div className="font-bold text-purple-600">demo</div>
+                      <div className="text-slate-500">Mot de passe: demo</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => quickLogin("demo", "demo")}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      Connexion
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="text-center text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
+            🔒 Connexion sécurisée avec session de 8 heures
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

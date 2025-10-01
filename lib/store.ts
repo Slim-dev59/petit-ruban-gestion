@@ -3,691 +3,724 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-// Interfaces
-export interface Creator {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  commission: number
-  isActive: boolean
-  createdAt: string
-  totalSales?: number
-  totalCommission?: number
-}
-
-export interface Product {
-  id: string
-  name: string
-  price: number
-  creatorId: string
-  category?: string
-  description?: string
-  isActive: boolean
-  createdAt: string
-  stock?: number
-}
-
-export interface Sale {
-  id: string
-  productId?: string
-  productName: string
-  price: number
-  quantity: number
-  total: number
-  creatorId?: string
-  creatorName?: string
+interface Sale {
+  id?: string
   date: string
+  description: string
+  prix: string
+  paiement: string
+  createur: string
+  quantity?: string
+  sku?: string
+  statut?: "active" | "payee"
+  paymentId?: string
+  commission?: string
+}
+
+interface StockItem {
+  createur: string
+  article: string
+  price: string
+  quantity: string
+  category: string
+  sku: string
+  lowStockThreshold: string
+  image?: string
+}
+
+interface Payment {
+  id: string
+  createur: string
+  montant: number
+  dateVirement: string
+  reference: string
+  banque: string
+  notes?: string
+  creePar: string
+  dateCreation: string
+  ventesPayees: Sale[]
+}
+
+interface Participation {
+  id: string
+  createur: string
+  mois: string // Format YYYY-MM
+  montantLoyer: number
+  dateEcheance: string
+  statut: "en_attente" | "paye" | "en_retard"
+  datePaiement?: string
+  modePaiement?: string
+  reference?: string
+  notes?: string
+  dateCreation: string
+}
+
+interface PendingSale {
+  id: string
+  date: string
+  description: string
+  prix: string
+  paiement: string
+  quantity?: string
+  commission?: string
   month: string
-  isAssigned: boolean
+  suggestedCreator?: string
   confidence?: number
-  source?: string
+  matchedItem?: string
+  needsValidation: boolean
 }
 
-export interface Payment {
+interface ImportHistory {
   id: string
-  creatorId: string
-  amount: number
-  type: "commission" | "rent" | "other"
-  description?: string
-  date: string
-  month: string
-  status: "pending" | "paid" | "cancelled"
+  fileName: string
+  importDate: string
+  salesCount: number
+  assignedCount: number
+  unassignedCount: string
+  months: string[]
 }
 
-export interface Participation {
-  id: string
-  creatorId: string
-  month: string
-  rentAmount: number
-  isPaid: boolean
-  paidDate?: string
-  dueDate: string
+interface Settings {
+  commissionRate: number
+  shopName: string
+  shopSubtitle: string
+  logoUrl: string
+  autoApplyCommission: boolean
+  loyerMensuel: number
 }
 
-export interface ImportHistory {
-  id: string
-  filename: string
-  type: "sales" | "stock" | "creators"
-  date: string
-  recordsCount: number
-  status: "success" | "error" | "partial"
-  errors?: string[]
-}
-
-export interface User {
-  id: string
-  username: string
-  email: string
-  role: "admin" | "manager" | "viewer"
-  isActive: boolean
-  lastLogin?: string
-  createdAt: string
-}
-
-export interface Settings {
-  companyName: string
-  companyEmail: string
-  defaultCommission: number
-  monthlyRent: number
-  currency: string
-  timezone: string
-  notifications: {
-    email: boolean
-    browser: boolean
-    lowStock: boolean
-    newSales: boolean
-  }
-  sumup: {
-    clientId: string
-    clientSecret: string
-    accessToken?: string
-    refreshToken?: string
-    isConnected: boolean
-    lastSync?: string
-    autoSync: boolean
-    syncInterval: number
-  }
-}
-
-export interface MonthlyData {
-  sales: Sale[]
+interface MonthlyData {
+  salesData: Sale[]
   payments: Payment[]
   participations: Participation[]
+  pendingSales: PendingSale[]
 }
 
-interface StoreState {
-  // Data
-  creators: Creator[]
-  products: Product[]
+interface Store {
+  creators: string[]
+  stockData: StockItem[]
   monthlyData: Record<string, MonthlyData>
-  importHistory: ImportHistory[]
-  users: User[]
-  settings: Settings
-
-  // UI State
-  isLoading: boolean
-  error: string | null
   currentMonth: string
+  settings: Settings
+  importHistory: ImportHistory[]
 
-  // Creators
-  addCreator: (creator: Omit<Creator, "id" | "createdAt">) => void
-  updateCreator: (id: string, updates: Partial<Creator>) => void
-  deleteCreator: (id: string) => void
-  getCreator: (id: string) => Creator | undefined
-
-  // Products
-  addProduct: (product: Omit<Product, "id" | "createdAt">) => void
-  updateProduct: (id: string, updates: Partial<Product>) => void
-  deleteProduct: (id: string) => void
-  getProduct: (id: string) => Product | undefined
-
-  // Sales
-  addSale: (sale: Omit<Sale, "id">) => void
-  updateSale: (id: string, updates: Partial<Sale>) => void
-  deleteSale: (id: string) => void
-  getSale: (id: string) => Sale | undefined
-  getSalesForMonth: (month: string) => Sale[]
-  assignSaleToCreator: (saleId: string, creatorId: string) => void
-
-  // Payments
-  addPayment: (payment: Omit<Payment, "id">) => void
-  updatePayment: (id: string, updates: Partial<Payment>) => void
-  deletePayment: (id: string) => void
-  getPayment: (id: string) => Payment | undefined
-  getPaymentsForMonth: (month: string) => Payment[]
-
-  // Participations
-  addParticipation: (participation: Omit<Participation, "id">) => void
-  updateParticipation: (id: string, updates: Partial<Participation>) => void
-  deleteParticipation: (id: string) => void
-  getParticipation: (id: string) => Participation | undefined
-  getParticipationsForMonth: (month: string) => Participation[]
-
-  // Import History
-  addImportRecord: (record: Omit<ImportHistory, "id">) => void
-
-  // Users
-  addUser: (user: Omit<User, "id" | "createdAt">) => void
-  updateUser: (id: string, updates: Partial<User>) => void
-  deleteUser: (id: string) => void
-  getUser: (id: string) => User | undefined
-
-  // Settings
-  updateSettings: (updates: Partial<Settings>) => void
-
-  // Analytics
-  getTotalSales: (month?: string) => number
-  getTotalCommissions: (month?: string) => number
-  getCreatorStats: (
-    creatorId: string,
-    month?: string,
-  ) => {
-    totalSales: number
-    totalCommission: number
-    salesCount: number
-  }
-  getTotalPendingSales: () => number
-  getMonthlyRevenue: (month: string) => number
-
-  // Utility
+  // Gestion des mois
   setCurrentMonth: (month: string) => void
-  setLoading: (loading: boolean) => void
-  setError: (error: string | null) => void
-  clearData: () => void
+  getCurrentMonthData: () => MonthlyData
+
+  addCreator: (name: string) => void
+  removeCreator: (name: string) => void
+  removeAllCreators: () => void
+  importSalesData: (data: Sale[], month?: string) => void
+  importStockData: (data: any[]) => void
+  getSalesForCreator: (creator: string, month?: string) => Sale[]
+  getStockForCreator: (creator: string) => StockItem[]
+  updateSettings: (settings: Settings) => void
+  updateCreatorMapping: (mapping: Record<string, string>) => void
+  resetAllData: () => void
+  clearStockData: () => void
+  clearSalesData: (month?: string) => void
+
+  // Gestion des ventes
+  updateSale: (saleId: string, updates: Partial<Sale>, month?: string) => void
+  getSaleById: (saleId: string, month?: string) => Sale | undefined
+
+  // Gestion des ventes en attente
+  addPendingSales: (sales: PendingSale[], month?: string) => void
+  getPendingSales: (month?: string) => PendingSale[]
+  updatePendingSale: (saleId: string, updates: Partial<PendingSale>, month?: string) => void
+  removePendingSale: (saleId: string, month?: string) => void
+  clearPendingSales: (month?: string) => void
+  getTotalPendingSales: () => number
+
+  // Gestion de l'historique des imports
+  addImportHistory: (importData: Omit<ImportHistory, "id" | "importDate">) => void
+  getImportHistory: () => ImportHistory[]
+  removeImportHistory: (importId: string) => void
+
+  // Gestion des paiements
+  addPayment: (payment: Omit<Payment, "id" | "dateCreation">, month?: string) => void
+  getPaymentsForCreator: (creator: string, month?: string) => Payment[]
+  getAllPayments: () => Payment[]
+  updatePayment: (paymentId: string, updates: Partial<Payment>) => void
+  deletePayment: (paymentId: string) => void
+  payCreatorAndReset: (
+    creator: string,
+    paymentData: Omit<Payment, "id" | "dateCreation" | "createur" | "ventesPayees">,
+    month?: string,
+  ) => void
+  getAllSalesForCreator: (creator: string, month?: string) => Sale[]
+  getPaidSalesForCreator: (creator: string, month?: string) => Sale[]
+
+  // Gestion des participations (loyers)
+  addParticipation: (participation: Omit<Participation, "id" | "dateCreation">) => void
+  updateParticipation: (participationId: string, updates: Partial<Participation>) => void
+  deleteParticipation: (participationId: string) => void
+  getParticipationsForCreator: (creator: string, month?: string) => Participation[]
+  getAllParticipations: () => Participation[]
+  generateMonthlyParticipations: (month: string) => void
+
+  // Nouvelles fonctions pour les données globales
+  salesData: Sale[] // Données du mois courant pour compatibilité
+  payments: Payment[] // Paiements du mois courant pour compatibilité
 }
 
-const defaultSettings: Settings = {
-  companyName: "Le Petit Ruban",
-  companyEmail: "contact@petit-ruban.fr",
-  defaultCommission: 30,
-  monthlyRent: 50,
-  currency: "EUR",
-  timezone: "Europe/Paris",
-  notifications: {
-    email: true,
-    browser: true,
-    lowStock: true,
-    newSales: true,
-  },
-  sumup: {
-    clientId: "",
-    clientSecret: "",
-    isConnected: false,
-    autoSync: false,
-    syncInterval: 60,
-  },
-}
+const getDefaultMonthlyData = (): MonthlyData => ({
+  salesData: [],
+  payments: [],
+  participations: [],
+  pendingSales: [],
+})
 
-export const useStore = create<StoreState>()(
+export const useStore = create<Store>()(
   persist(
     (set, get) => ({
-      // Initial state
       creators: [],
-      products: [],
+      stockData: [],
       monthlyData: {},
+      currentMonth: new Date().toISOString().slice(0, 7), // Format YYYY-MM
       importHistory: [],
-      users: [],
-      settings: defaultSettings,
-      isLoading: false,
-      error: null,
-      currentMonth: new Date().toISOString().slice(0, 7),
+      settings: {
+        commissionRate: 1.75,
+        shopName: "Ma Boutique Multi-Créateurs",
+        shopSubtitle: "Gestion des ventes et créateurs",
+        logoUrl: "",
+        autoApplyCommission: true,
+        loyerMensuel: 50,
+      },
 
-      // Creators
-      addCreator: (creator) => {
-        const newCreator: Creator = {
-          ...creator,
-          id: `creator-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-        }
+      // Propriétés calculées pour compatibilité
+      get salesData() {
+        const { monthlyData, currentMonth } = get()
+        return monthlyData[currentMonth]?.salesData || []
+      },
+
+      get payments() {
+        const { monthlyData, currentMonth } = get()
+        return monthlyData[currentMonth]?.payments || []
+      },
+
+      setCurrentMonth: (month: string) => {
+        set({ currentMonth: month })
+      },
+
+      getCurrentMonthData: () => {
+        const { monthlyData, currentMonth } = get()
+        return monthlyData[currentMonth] || getDefaultMonthlyData()
+      },
+
+      addCreator: (name) => {
         set((state) => ({
-          creators: [...state.creators, newCreator],
+          creators: [...state.creators.filter((c) => c !== name), name],
         }))
       },
 
-      updateCreator: (id, updates) => {
+      removeCreator: (name) => {
         set((state) => ({
-          creators: state.creators.map((creator) => (creator.id === id ? { ...creator, ...updates } : creator)),
+          creators: state.creators.filter((c) => c !== name),
         }))
       },
 
-      deleteCreator: (id) => {
-        set((state) => ({
-          creators: state.creators.filter((creator) => creator.id !== id),
-        }))
+      removeAllCreators: () => {
+        set({ creators: [] })
       },
 
-      getCreator: (id) => {
-        return get().creators.find((creator) => creator.id === id)
-      },
-
-      // Products
-      addProduct: (product) => {
-        const newProduct: Product = {
-          ...product,
-          id: `product-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-        }
-        set((state) => ({
-          products: [...state.products, newProduct],
-        }))
-      },
-
-      updateProduct: (id, updates) => {
-        set((state) => ({
-          products: state.products.map((product) => (product.id === id ? { ...product, ...updates } : product)),
-        }))
-      },
-
-      deleteProduct: (id) => {
-        set((state) => ({
-          products: state.products.filter((product) => product.id !== id),
-        }))
-      },
-
-      getProduct: (id) => {
-        return get().products.find((product) => product.id === id)
-      },
-
-      // Sales
-      addSale: (sale) => {
-        const newSale: Sale = {
+      importSalesData: (data: Sale[], month?: string) => {
+        const targetMonth = month || get().currentMonth
+        const salesWithStatus = data.map((sale, index) => ({
           ...sale,
-          id: `sale-${Date.now()}`,
-        }
+          id: sale.id || `sale_${Date.now()}_${index}`,
+          statut: "active" as const,
+        }))
 
         set((state) => {
-          const month = sale.month
-          const monthData = state.monthlyData[month] || { sales: [], payments: [], participations: [] }
-
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
           return {
             monthlyData: {
               ...state.monthlyData,
-              [month]: {
-                ...monthData,
-                sales: [...monthData.sales, newSale],
+              [targetMonth]: {
+                ...currentData,
+                salesData: [...currentData.salesData, ...salesWithStatus],
+              },
+            },
+          }
+        })
+
+        console.log(`${salesWithStatus.length} ventes importées pour ${targetMonth}`)
+      },
+
+      importStockData: (data) => {
+        console.log("Import stock data - données reçues:", data.length)
+
+        const processedData: StockItem[] = data.map((item: any) => ({
+          createur: item.createur || "",
+          article: item.article || "",
+          price: item.price || "0",
+          quantity: item.quantity || "0",
+          category: item.category || "",
+          sku: item.sku || "",
+          lowStockThreshold: item.lowStockThreshold || "0",
+          image: item.image || "",
+        }))
+
+        // Ajouter automatiquement les créateurs trouvés
+        const creatorsFound = [...new Set(processedData.map((item) => item.createur))]
+        creatorsFound.forEach((creator) => {
+          if (creator && !get().creators.includes(creator)) {
+            get().addCreator(creator)
+          }
+        })
+
+        console.log("Créateurs ajoutés:", creatorsFound)
+        console.log("Articles traités:", processedData.length)
+
+        set({ stockData: processedData })
+      },
+
+      getSalesForCreator: (creator, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.salesData.filter((sale) => sale.createur === creator && sale.statut !== "payee")
+      },
+
+      getStockForCreator: (creator) => {
+        return get().stockData.filter((item) => item.createur === creator)
+      },
+
+      updateSettings: (settings) => {
+        set({ settings })
+      },
+
+      updateCreatorMapping: (mapping) => {
+        set((state) => {
+          const updatedStockData = state.stockData.map((item) => ({
+            ...item,
+            createur: mapping[item.createur] || item.createur,
+          }))
+
+          return {
+            stockData: updatedStockData,
+          }
+        })
+      },
+
+      resetAllData: () => {
+        set({
+          creators: [],
+          stockData: [],
+          monthlyData: {},
+          importHistory: [],
+          settings: {
+            commissionRate: 1.75,
+            shopName: "Ma Boutique Multi-Créateurs",
+            shopSubtitle: "Gestion des ventes et créateurs",
+            logoUrl: "",
+            autoApplyCommission: true,
+            loyerMensuel: 50,
+          },
+        })
+      },
+
+      clearStockData: () => {
+        set({ stockData: [] })
+      },
+
+      clearSalesData: (month) => {
+        const targetMonth = month || get().currentMonth
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                salesData: [],
               },
             },
           }
         })
       },
 
-      updateSale: (id, updates) => {
+      // Gestion des ventes
+      updateSale: (saleId: string, updates: Partial<Sale>, month?: string) => {
+        const targetMonth = month || get().currentMonth
         set((state) => {
-          const newMonthlyData = { ...state.monthlyData }
-
-          for (const month in newMonthlyData) {
-            const monthData = newMonthlyData[month]
-            const saleIndex = monthData.sales.findIndex((sale) => sale.id === id)
-
-            if (saleIndex !== -1) {
-              monthData.sales[saleIndex] = { ...monthData.sales[saleIndex], ...updates }
-              break
-            }
-          }
-
-          return { monthlyData: newMonthlyData }
-        })
-      },
-
-      deleteSale: (id) => {
-        set((state) => {
-          const newMonthlyData = { ...state.monthlyData }
-
-          for (const month in newMonthlyData) {
-            const monthData = newMonthlyData[month]
-            monthData.sales = monthData.sales.filter((sale) => sale.id !== id)
-          }
-
-          return { monthlyData: newMonthlyData }
-        })
-      },
-
-      getSale: (id) => {
-        const { monthlyData } = get()
-
-        for (const month in monthlyData) {
-          const sale = monthlyData[month].sales.find((sale) => sale.id === id)
-          if (sale) return sale
-        }
-
-        return undefined
-      },
-
-      getSalesForMonth: (month) => {
-        const { monthlyData } = get()
-        return monthlyData[month]?.sales || []
-      },
-
-      assignSaleToCreator: (saleId, creatorId) => {
-        const creator = get().getCreator(creatorId)
-        if (!creator) return
-
-        get().updateSale(saleId, {
-          creatorId,
-          creatorName: creator.name,
-          isAssigned: true,
-        })
-      },
-
-      // Payments
-      addPayment: (payment) => {
-        const newPayment: Payment = {
-          ...payment,
-          id: `payment-${Date.now()}`,
-        }
-
-        set((state) => {
-          const month = payment.month
-          const monthData = state.monthlyData[month] || { sales: [], payments: [], participations: [] }
-
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
           return {
             monthlyData: {
               ...state.monthlyData,
-              [month]: {
-                ...monthData,
-                payments: [...monthData.payments, newPayment],
+              [targetMonth]: {
+                ...currentData,
+                salesData: currentData.salesData.map((sale) => (sale.id === saleId ? { ...sale, ...updates } : sale)),
               },
             },
           }
         })
       },
 
-      updatePayment: (id, updates) => {
-        set((state) => {
-          const newMonthlyData = { ...state.monthlyData }
+      getSaleById: (saleId: string, month?: string) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return undefined
+        return monthData.salesData.find((sale) => sale.id === saleId)
+      },
 
-          for (const month in newMonthlyData) {
-            const monthData = newMonthlyData[month]
-            const paymentIndex = monthData.payments.findIndex((payment) => payment.id === id)
+      // Gestion des ventes en attente
+      addPendingSales: (sales: PendingSale[], month?: string) => {
+        const targetMonth = month || get().currentMonth
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                pendingSales: [...currentData.pendingSales, ...sales],
+              },
+            },
+          }
+        })
+      },
+
+      getPendingSales: (month?: string) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        return monthData ? monthData.pendingSales : []
+      },
+
+      updatePendingSale: (saleId: string, updates: Partial<PendingSale>, month?: string) => {
+        const targetMonth = month || get().currentMonth
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                pendingSales: currentData.pendingSales.map((sale) =>
+                  sale.id === saleId ? { ...sale, ...updates } : sale,
+                ),
+              },
+            },
+          }
+        })
+      },
+
+      removePendingSale: (saleId: string, month?: string) => {
+        const targetMonth = month || get().currentMonth
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                pendingSales: currentData.pendingSales.filter((sale) => sale.id !== saleId),
+              },
+            },
+          }
+        })
+      },
+
+      clearPendingSales: (month?: string) => {
+        const targetMonth = month || get().currentMonth
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                pendingSales: [],
+              },
+            },
+          }
+        })
+      },
+
+      getTotalPendingSales: () => {
+        return Object.values(get().monthlyData).reduce((total, monthData) => {
+          return total + monthData.pendingSales.filter((sale) => sale.needsValidation).length
+        }, 0)
+      },
+
+      // Gestion de l'historique des imports
+      addImportHistory: (importData) => {
+        const newImport: ImportHistory = {
+          ...importData,
+          id: `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          importDate: new Date().toISOString(),
+        }
+
+        set((state) => ({
+          importHistory: [newImport, ...state.importHistory],
+        }))
+      },
+
+      getImportHistory: () => {
+        return get().importHistory
+      },
+
+      removeImportHistory: (importId: string) => {
+        set((state) => ({
+          importHistory: state.importHistory.filter((imp) => imp.id !== importId),
+        }))
+      },
+
+      // Gestion des paiements
+      addPayment: (paymentData, month) => {
+        const targetMonth = month || get().currentMonth
+        const payment: Payment = {
+          ...paymentData,
+          id: `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          dateCreation: new Date().toISOString(),
+        }
+
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                payments: [...currentData.payments, payment],
+              },
+            },
+          }
+        })
+      },
+
+      getPaymentsForCreator: (creator: string, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.payments.filter((payment) => payment.createur === creator)
+      },
+
+      getAllPayments: () => {
+        return Object.values(get().monthlyData).flatMap((month) => month.payments)
+      },
+
+      updatePayment: (paymentId: string, updates: Partial<Payment>) => {
+        set((state) => {
+          const updatedMonthlyData = { ...state.monthlyData }
+
+          for (const month in updatedMonthlyData) {
+            const monthData = updatedMonthlyData[month]
+            const paymentIndex = monthData.payments.findIndex((p) => p.id === paymentId)
 
             if (paymentIndex !== -1) {
-              monthData.payments[paymentIndex] = { ...monthData.payments[paymentIndex], ...updates }
-              break
-            }
-          }
-
-          return { monthlyData: newMonthlyData }
-        })
-      },
-
-      deletePayment: (id) => {
-        set((state) => {
-          const newMonthlyData = { ...state.monthlyData }
-
-          for (const month in newMonthlyData) {
-            const monthData = newMonthlyData[month]
-            monthData.payments = monthData.payments.filter((payment) => payment.id !== id)
-          }
-
-          return { monthlyData: newMonthlyData }
-        })
-      },
-
-      getPayment: (id) => {
-        const { monthlyData } = get()
-
-        for (const month in monthlyData) {
-          const payment = monthlyData[month].payments.find((payment) => payment.id === id)
-          if (payment) return payment
-        }
-
-        return undefined
-      },
-
-      getPaymentsForMonth: (month) => {
-        const { monthlyData } = get()
-        return monthlyData[month]?.payments || []
-      },
-
-      // Participations
-      addParticipation: (participation) => {
-        const newParticipation: Participation = {
-          ...participation,
-          id: `participation-${Date.now()}`,
-        }
-
-        set((state) => {
-          const month = participation.month
-          const monthData = state.monthlyData[month] || { sales: [], payments: [], participations: [] }
-
-          return {
-            monthlyData: {
-              ...state.monthlyData,
-              [month]: {
+              updatedMonthlyData[month] = {
                 ...monthData,
-                participations: [...monthData.participations, newParticipation],
-              },
-            },
-          }
-        })
-      },
-
-      updateParticipation: (id, updates) => {
-        set((state) => {
-          const newMonthlyData = { ...state.monthlyData }
-
-          for (const month in newMonthlyData) {
-            const monthData = newMonthlyData[month]
-            const participationIndex = monthData.participations.findIndex((participation) => participation.id === id)
-
-            if (participationIndex !== -1) {
-              monthData.participations[participationIndex] = {
-                ...monthData.participations[participationIndex],
-                ...updates,
+                payments: monthData.payments.map((payment) =>
+                  payment.id === paymentId ? { ...payment, ...updates } : payment,
+                ),
               }
               break
             }
           }
 
-          return { monthlyData: newMonthlyData }
+          return { monthlyData: updatedMonthlyData }
         })
       },
 
-      deleteParticipation: (id) => {
+      deletePayment: (paymentId: string) => {
         set((state) => {
-          const newMonthlyData = { ...state.monthlyData }
+          const updatedMonthlyData = { ...state.monthlyData }
 
-          for (const month in newMonthlyData) {
-            const monthData = newMonthlyData[month]
-            monthData.participations = monthData.participations.filter((participation) => participation.id !== id)
+          for (const month in updatedMonthlyData) {
+            const monthData = updatedMonthlyData[month]
+            const paymentIndex = monthData.payments.findIndex((p) => p.id === paymentId)
+
+            if (paymentIndex !== -1) {
+              // Remettre les ventes en statut "active"
+              const payment = monthData.payments[paymentIndex]
+              updatedMonthlyData[month] = {
+                ...monthData,
+                payments: monthData.payments.filter((p) => p.id !== paymentId),
+                salesData: monthData.salesData.map((sale) =>
+                  sale.paymentId === paymentId ? { ...sale, statut: "active" as const, paymentId: undefined } : sale,
+                ),
+              }
+              break
+            }
           }
 
-          return { monthlyData: newMonthlyData }
+          return { monthlyData: updatedMonthlyData }
         })
       },
 
-      getParticipation: (id) => {
-        const { monthlyData } = get()
+      payCreatorAndReset: (creator: string, paymentData, month) => {
+        const targetMonth = month || get().currentMonth
+        const state = get()
+        const monthData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+        const creatorSales = monthData.salesData.filter((sale) => sale.createur === creator && sale.statut !== "payee")
 
-        for (const month in monthlyData) {
-          const participation = monthlyData[month].participations.find((participation) => participation.id === id)
-          if (participation) return participation
+        const totalSales = creatorSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
+        const totalCommission = creatorSales.reduce((sum, sale) => {
+          const price = Number.parseFloat(sale.prix || "0")
+          const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+          return sum + (isNotCash ? price * (state.settings.commissionRate / 100) : 0)
+        }, 0)
+        const netAmount = totalSales - totalCommission
+
+        const paymentId = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const payment: Payment = {
+          id: paymentId,
+          createur: creator,
+          montant: netAmount,
+          dateVirement: paymentData.dateVirement,
+          reference: paymentData.reference,
+          banque: paymentData.banque,
+          notes: paymentData.notes,
+          creePar: paymentData.creePar,
+          dateCreation: new Date().toISOString(),
+          ventesPayees: [...creatorSales],
         }
 
-        return undefined
-      },
-
-      getParticipationsForMonth: (month) => {
-        const { monthlyData } = get()
-        return monthlyData[month]?.participations || []
-      },
-
-      // Import History
-      addImportRecord: (record) => {
-        const newRecord: ImportHistory = {
-          ...record,
-          id: `import-${Date.now()}`,
-        }
-        set((state) => ({
-          importHistory: [newRecord, ...state.importHistory],
-        }))
-      },
-
-      // Users
-      addUser: (user) => {
-        const newUser: User = {
-          ...user,
-          id: `user-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-        }
-        set((state) => ({
-          users: [...state.users, newUser],
-        }))
-      },
-
-      updateUser: (id, updates) => {
-        set((state) => ({
-          users: state.users.map((user) => (user.id === id ? { ...user, ...updates } : user)),
-        }))
-      },
-
-      deleteUser: (id) => {
-        set((state) => ({
-          users: state.users.filter((user) => user.id !== id),
-        }))
-      },
-
-      getUser: (id) => {
-        return get().users.find((user) => user.id === id)
-      },
-
-      // Settings
-      updateSettings: (updates) => {
-        set((state) => ({
-          settings: { ...state.settings, ...updates },
-        }))
-      },
-
-      // Analytics
-      getTotalSales: (month) => {
-        const { monthlyData } = get()
-
-        if (month) {
-          return monthlyData[month]?.sales.reduce((total, sale) => total + sale.total, 0) || 0
-        }
-
-        return Object.values(monthlyData).reduce(
-          (total, monthData) => total + monthData.sales.reduce((monthTotal, sale) => monthTotal + sale.total, 0),
-          0,
-        )
-      },
-
-      getTotalCommissions: (month) => {
-        const { monthlyData, creators } = get()
-
-        const calculateCommission = (sale: Sale) => {
-          if (!sale.creatorId) return 0
-          const creator = creators.find((c) => c.id === sale.creatorId)
-          return creator ? (sale.total * creator.commission) / 100 : 0
-        }
-
-        if (month) {
-          return monthlyData[month]?.sales.reduce((total, sale) => total + calculateCommission(sale), 0) || 0
-        }
-
-        return Object.values(monthlyData).reduce(
-          (total, monthData) =>
-            total + monthData.sales.reduce((monthTotal, sale) => monthTotal + calculateCommission(sale), 0),
-          0,
-        )
-      },
-
-      getCreatorStats: (creatorId, month) => {
-        const { monthlyData, creators } = get()
-        const creator = creators.find((c) => c.id === creatorId)
-
-        if (!creator) {
-          return { totalSales: 0, totalCommission: 0, salesCount: 0 }
-        }
-
-        const calculateForMonth = (monthData: MonthlyData) => {
-          const creatorSales = monthData.sales.filter((sale) => sale.creatorId === creatorId)
-          const totalSales = creatorSales.reduce((total, sale) => total + sale.total, 0)
-          const totalCommission = (totalSales * creator.commission) / 100
-
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
           return {
-            totalSales,
-            totalCommission,
-            salesCount: creatorSales.length,
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                salesData: currentData.salesData.map((sale) =>
+                  sale.createur === creator && sale.statut !== "payee"
+                    ? { ...sale, statut: "payee" as const, paymentId: paymentId }
+                    : sale,
+                ),
+                payments: [...currentData.payments, payment],
+              },
+            },
           }
+        })
+
+        console.log(`Paiement effectué pour ${creator} (${targetMonth}): ${netAmount.toFixed(2)}€`)
+        console.log(`${creatorSales.length} ventes archivées sous le paiement ${paymentId}`)
+      },
+
+      getAllSalesForCreator: (creator, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.salesData.filter((sale) => sale.createur === creator)
+      },
+
+      getPaidSalesForCreator: (creator, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.salesData.filter((sale) => sale.createur === creator && sale.statut === "payee")
+      },
+
+      // Gestion des participations (loyers)
+      addParticipation: (participationData) => {
+        const participation: Participation = {
+          ...participationData,
+          id: `participation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          dateCreation: new Date().toISOString(),
         }
 
-        if (month) {
-          const monthData = monthlyData[month]
-          return monthData ? calculateForMonth(monthData) : { totalSales: 0, totalCommission: 0, salesCount: 0 }
-        }
+        const targetMonth = participationData.mois
+        set((state) => {
+          const currentData = state.monthlyData[targetMonth] || getDefaultMonthlyData()
+          return {
+            monthlyData: {
+              ...state.monthlyData,
+              [targetMonth]: {
+                ...currentData,
+                participations: [...currentData.participations, participation],
+              },
+            },
+          }
+        })
+      },
 
-        return Object.values(monthlyData).reduce(
-          (total, monthData) => {
-            const monthStats = calculateForMonth(monthData)
-            return {
-              totalSales: total.totalSales + monthStats.totalSales,
-              totalCommission: total.totalCommission + monthStats.totalCommission,
-              salesCount: total.salesCount + monthStats.salesCount,
+      updateParticipation: (participationId: string, updates: Partial<Participation>) => {
+        set((state) => {
+          const updatedMonthlyData = { ...state.monthlyData }
+
+          for (const month in updatedMonthlyData) {
+            const monthData = updatedMonthlyData[month]
+            const participationIndex = monthData.participations.findIndex((p) => p.id === participationId)
+
+            if (participationIndex !== -1) {
+              updatedMonthlyData[month] = {
+                ...monthData,
+                participations: monthData.participations.map((participation) =>
+                  participation.id === participationId ? { ...participation, ...updates } : participation,
+                ),
+              }
+              break
             }
-          },
-          { totalSales: 0, totalCommission: 0, salesCount: 0 },
-        )
+          }
+
+          return { monthlyData: updatedMonthlyData }
+        })
       },
 
-      getTotalPendingSales: () => {
-        const { monthlyData } = get()
+      deleteParticipation: (participationId: string) => {
+        set((state) => {
+          const updatedMonthlyData = { ...state.monthlyData }
 
-        return Object.values(monthlyData).reduce(
-          (total, monthData) => total + monthData.sales.filter((sale) => !sale.isAssigned).length,
-          0,
-        )
+          for (const month in updatedMonthlyData) {
+            const monthData = updatedMonthlyData[month]
+            const participationIndex = monthData.participations.findIndex((p) => p.id === participationId)
+
+            if (participationIndex !== -1) {
+              updatedMonthlyData[month] = {
+                ...monthData,
+                participations: monthData.participations.filter((p) => p.id !== participationId),
+              }
+              break
+            }
+          }
+
+          return { monthlyData: updatedMonthlyData }
+        })
       },
 
-      getMonthlyRevenue: (month) => {
-        const { monthlyData } = get()
-        const monthData = monthlyData[month]
-
-        if (!monthData) return 0
-
-        const totalSales = monthData.sales.reduce((total, sale) => total + sale.total, 0)
-        const totalCommissions = get().getTotalCommissions(month)
-
-        return totalSales - totalCommissions
+      getParticipationsForCreator: (creator: string, month) => {
+        const targetMonth = month || get().currentMonth
+        const monthData = get().monthlyData[targetMonth]
+        if (!monthData) return []
+        return monthData.participations.filter((participation) => participation.createur === creator)
       },
 
-      // Utility
-      setCurrentMonth: (month) => {
-        set({ currentMonth: month })
+      getAllParticipations: () => {
+        return Object.values(get().monthlyData).flatMap((month) => month.participations)
       },
 
-      setLoading: (loading) => {
-        set({ isLoading: loading })
-      },
+      generateMonthlyParticipations: (month: string) => {
+        const { creators, settings } = get()
+        const monthData = get().monthlyData[month] || getDefaultMonthlyData()
 
-      setError: (error) => {
-        set({ error })
-      },
+        // Vérifier si les participations existent déjà pour ce mois
+        const existingParticipations = monthData.participations
 
-      clearData: () => {
-        set({
-          creators: [],
-          products: [],
-          monthlyData: {},
-          importHistory: [],
-          users: [],
-          settings: defaultSettings,
-          error: null,
+        creators.forEach((creator) => {
+          const hasParticipation = existingParticipations.some((p) => p.createur === creator)
+
+          if (!hasParticipation) {
+            const lastDayOfMonth = new Date(month + "-01")
+            lastDayOfMonth.setMonth(lastDayOfMonth.getMonth() + 1)
+            lastDayOfMonth.setDate(0)
+
+            get().addParticipation({
+              createur: creator,
+              mois: month,
+              montantLoyer: settings.loyerMensuel,
+              dateEcheance: lastDayOfMonth.toISOString().split("T")[0],
+              statut: "en_attente",
+            })
+          }
         })
       },
     }),
     {
       name: "boutique-storage",
-      partialize: (state) => ({
-        creators: state.creators,
-        products: state.products,
-        monthlyData: state.monthlyData,
-        importHistory: state.importHistory,
-        users: state.users,
-        settings: state.settings,
-        currentMonth: state.currentMonth,
-      }),
     },
   ),
 )

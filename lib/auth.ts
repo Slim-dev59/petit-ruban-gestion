@@ -6,137 +6,190 @@ import { persist } from "zustand/middleware"
 export interface User {
   id: string
   username: string
-  email: string
-  role: "admin" | "manager" | "viewer"
-  isActive: boolean
-  lastLogin?: string
+  name: string
+  role: "admin" | "user"
   createdAt: string
+  lastLogin?: string
 }
 
 interface AuthState {
+  users: User[]
   currentUser: User | null
-  isAuthenticated: boolean
   sessionExpiry: number | null
-
-  // Actions
   login: (username: string, password: string) => boolean
   logout: () => void
-  isSessionValid: () => boolean
+  addUser: (username: string, password: string, name: string, role: "admin" | "user") => boolean
+  updateUser: (userId: string, updates: Partial<User & { password?: string }>) => boolean
+  deleteUser: (userId: string) => boolean
   extendSession: () => void
-  getCurrentUser: () => User | null
+  isSessionValid: () => boolean
 }
 
-const defaultUsers: User[] = [
-  {
-    id: "1",
-    username: "admin",
-    email: "admin@petit-ruban.fr",
-    role: "admin",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    username: "setup",
-    email: "setup@petit-ruban.fr",
-    role: "manager",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    username: "demo",
-    email: "demo@petit-ruban.fr",
-    role: "viewer",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-]
+// Stockage sécurisé des mots de passe (en production, utiliser une vraie base de données)
+const passwords: Record<string, string> = {
+  admin: "admin",
+  setup: "setup",
+  demo: "demo",
+}
 
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
+      users: [
+        {
+          id: "admin-user",
+          username: "admin",
+          name: "Administrateur",
+          role: "admin",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "setup-user",
+          username: "setup",
+          name: "Utilisateur de configuration",
+          role: "admin",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "demo-user",
+          username: "demo",
+          name: "Utilisateur de démonstration",
+          role: "user",
+          createdAt: new Date().toISOString(),
+        },
+      ],
       currentUser: null,
-      isAuthenticated: false,
       sessionExpiry: null,
 
       login: (username: string, password: string) => {
-        console.log("🔐 Tentative de connexion:", username)
+        console.log("=== TENTATIVE DE CONNEXION ===")
+        console.log("Username:", username)
+        console.log("Password:", password)
 
-        // Validation des identifiants
-        const validCredentials = [
-          { username: "admin", password: "admin" },
-          { username: "setup", password: "setup" },
-          { username: "demo", password: "demo" },
-        ]
+        const users = get().users
+        const user = users.find((u) => u.username === username)
 
-        const isValidCredential = validCredentials.find(
-          (cred) => cred.username === username && cred.password === password,
-        )
+        console.log("Utilisateur trouvé:", user)
+        console.log("Mot de passe stocké:", passwords[username])
+        console.log("Mots de passe disponibles:", Object.keys(passwords))
 
-        if (!isValidCredential) {
-          console.log("❌ Identifiants invalides")
-          return false
+        if (user && passwords[username] === password) {
+          const sessionExpiry = Date.now() + 8 * 60 * 60 * 1000 // 8 heures
+          const updatedUser = { ...user, lastLogin: new Date().toISOString() }
+
+          console.log("Connexion réussie, création de la session")
+          console.log("Session expire à:", new Date(sessionExpiry))
+
+          set((state) => ({
+            users: state.users.map((u) => (u.id === user.id ? updatedUser : u)),
+            currentUser: updatedUser,
+            sessionExpiry,
+          }))
+
+          return true
         }
 
-        const user = defaultUsers.find((u) => u.username === username)
-        if (!user || !user.isActive) {
-          console.log("❌ Utilisateur non trouvé ou inactif")
-          return false
-        }
-
-        const sessionExpiry = Date.now() + 24 * 60 * 60 * 1000 // 24 heures
-
-        set({
-          currentUser: { ...user, lastLogin: new Date().toISOString() },
-          isAuthenticated: true,
-          sessionExpiry,
-        })
-
-        console.log("✅ Connexion réussie:", user.username, user.role)
-        return true
+        console.log("Connexion échouée - identifiants incorrects")
+        return false
       },
 
       logout: () => {
-        console.log("🚪 Déconnexion")
-        set({
-          currentUser: null,
-          isAuthenticated: false,
-          sessionExpiry: null,
-        })
+        console.log("Déconnexion de l'utilisateur")
+        set({ currentUser: null, sessionExpiry: null })
       },
 
-      isSessionValid: () => {
-        const { sessionExpiry, isAuthenticated } = get()
-        if (!isAuthenticated || !sessionExpiry) {
+      addUser: (username: string, password: string, name: string, role: "admin" | "user") => {
+        const users = get().users
+
+        if (users.some((u) => u.username === username)) {
           return false
         }
-        return Date.now() < sessionExpiry
+
+        const newUser: User = {
+          id: `user-${Date.now()}`,
+          username,
+          name,
+          role,
+          createdAt: new Date().toISOString(),
+        }
+
+        passwords[username] = password
+
+        set((state) => ({
+          users: [...state.users, newUser],
+        }))
+
+        return true
+      },
+
+      updateUser: (userId: string, updates: Partial<User & { password?: string }>) => {
+        const users = get().users
+        const userIndex = users.findIndex((u) => u.id === userId)
+
+        if (userIndex === -1) return false
+
+        const user = users[userIndex]
+
+        if (updates.password) {
+          passwords[user.username] = updates.password
+        }
+
+        const updatedUser = { ...user, ...updates }
+        delete (updatedUser as any).password
+
+        set((state) => ({
+          users: state.users.map((u) => (u.id === userId ? updatedUser : u)),
+          currentUser: state.currentUser?.id === userId ? updatedUser : state.currentUser,
+        }))
+
+        return true
+      },
+
+      deleteUser: (userId: string) => {
+        const users = get().users
+        const user = users.find((u) => u.id === userId)
+
+        if (!user) return false
+
+        delete passwords[user.username]
+
+        set((state) => ({
+          users: state.users.filter((u) => u.id !== userId),
+        }))
+
+        return true
       },
 
       extendSession: () => {
-        const { isAuthenticated } = get()
-        if (isAuthenticated) {
-          const newExpiry = Date.now() + 24 * 60 * 60 * 1000 // 24 heures
-          set({ sessionExpiry: newExpiry })
-          console.log("🔄 Session étendue jusqu'à:", new Date(newExpiry).toLocaleString())
+        const currentUser = get().currentUser
+        if (currentUser) {
+          const sessionExpiry = Date.now() + 8 * 60 * 60 * 1000
+          console.log("Extension de session jusqu'à:", new Date(sessionExpiry))
+          set({ sessionExpiry })
         }
       },
 
-      getCurrentUser: () => {
-        return get().currentUser
+      isSessionValid: () => {
+        const { currentUser, sessionExpiry } = get()
+        const isValid = currentUser !== null && sessionExpiry !== null && Date.now() < sessionExpiry
+
+        if (!isValid) {
+          console.log("Session invalide:")
+          console.log("- Utilisateur:", currentUser)
+          console.log("- Expiration:", sessionExpiry ? new Date(sessionExpiry) : null)
+          console.log("- Maintenant:", new Date())
+        }
+
+        return isValid
       },
     }),
     {
       name: "auth-storage",
       partialize: (state) => ({
+        users: state.users,
         currentUser: state.currentUser,
-        isAuthenticated: state.isAuthenticated,
         sessionExpiry: state.sessionExpiry,
       }),
     },
   ),
 )
-
-// Export alias pour compatibilité
-export const useAuthStore = useAuth
