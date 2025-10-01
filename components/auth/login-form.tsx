@@ -1,15 +1,36 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/lib/auth"
-import { Lock, User, AlertCircle, Eye, EyeOff, Shield } from "lucide-react"
+import { Lock, User, AlertCircle, Eye, EyeOff, Shield, RefreshCw } from "lucide-react"
+
+const testAccounts = [
+  {
+    username: "admin",
+    password: "admin",
+    role: "Administrateur",
+    color: "bg-blue-600",
+  },
+  {
+    username: "setup",
+    password: "setup",
+    role: "Configuration",
+    color: "bg-green-600",
+  },
+  {
+    username: "demo",
+    password: "demo",
+    role: "Démonstration",
+    color: "bg-purple-600",
+  },
+]
 
 export function LoginForm() {
   const [username, setUsername] = useState("")
@@ -32,10 +53,32 @@ export function LoginForm() {
         setError("Nom d'utilisateur ou mot de passe incorrect")
       }
     } catch (err) {
+      console.error("Erreur de connexion:", err)
       setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const quickLogin = (user: string, pass: string) => {
+    setUsername(user)
+    setPassword(pass)
+    setError("")
+    setIsLoading(true)
+
+    setTimeout(() => {
+      const success = login(user, pass)
+      if (!success) {
+        setError("Échec de la connexion rapide")
+      }
+      setIsLoading(false)
+    }, 300)
+  }
+
+  const resetAuth = () => {
+    localStorage.removeItem("auth-storage")
+    sessionStorage.clear()
+    window.location.reload()
   }
 
   return (
@@ -46,10 +89,8 @@ export function LoginForm() {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold text-slate-900">Connexion</CardTitle>
-            <CardDescription className="text-slate-600 font-medium">
-              Accédez à votre espace de gestion sécurisé
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold text-slate-900">Le Petit Ruban</CardTitle>
+            <CardDescription className="text-slate-600 font-medium">Gestion Multi-Créateurs</CardDescription>
           </div>
         </CardHeader>
 
@@ -116,8 +157,50 @@ export function LoginForm() {
             </Button>
           </form>
 
+          <Separator />
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-slate-900 text-center">🔑 Comptes disponibles</p>
+            <div className="space-y-2">
+              {testAccounts.map((account) => (
+                <div
+                  key={account.username}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border"
+                >
+                  <div className="text-sm">
+                    <div className="font-bold text-slate-900">{account.username}</div>
+                    <div className="text-slate-600 text-xs">
+                      Mot de passe: <span className="font-mono">{account.password}</span>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => quickLogin(account.username, account.password)}
+                    disabled={isLoading}
+                    className={`${account.color} hover:opacity-90 text-white`}
+                  >
+                    Connexion
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={resetAuth}
+            className="w-full text-slate-600 hover:text-slate-900"
+            size="sm"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Réinitialiser l'authentification
+          </Button>
+
           <div className="text-center text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
-            🔒 Connexion sécurisée avec session de 8 heures
+            🔒 Session sécurisée de 24 heures
           </div>
         </CardContent>
       </Card>

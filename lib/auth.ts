@@ -25,9 +25,11 @@ interface AuthState {
   isSessionValid: () => boolean
 }
 
-// Stockage sécurisé des mots de passe (en production, utilisez un hash)
+// Stockage des mots de passe - Comptes simplifiés
 const passwords: Record<string, string> = {
-  setup: "Setup2024!",
+  admin: "admin",
+  setup: "setup",
+  demo: "demo",
 }
 
 export const useAuth = create<AuthState>()(
@@ -35,10 +37,24 @@ export const useAuth = create<AuthState>()(
     (set, get) => ({
       users: [
         {
+          id: "admin-user",
+          username: "admin",
+          name: "Administrateur",
+          role: "admin",
+          createdAt: new Date().toISOString(),
+        },
+        {
           id: "setup-user",
           username: "setup",
-          name: "Utilisateur de configuration",
+          name: "Configuration",
           role: "admin",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "demo-user",
+          username: "demo",
+          name: "Démonstration",
+          role: "user",
           createdAt: new Date().toISOString(),
         },
       ],
@@ -46,25 +62,34 @@ export const useAuth = create<AuthState>()(
       sessionExpiry: null,
 
       login: (username: string, password: string) => {
+        console.log("🔐 Tentative de connexion:", username)
+
         const users = get().users
         const user = users.find((u) => u.username === username)
 
-        if (user && passwords[username] === password) {
-          const sessionExpiry = Date.now() + 8 * 60 * 60 * 1000 // 8 heures
+        console.log("Utilisateur trouvé:", user)
+        console.log("Mot de passe attendu:", passwords[username])
 
-          // Mettre à jour la dernière connexion
+        if (user && passwords[username] === password) {
+          const sessionExpiry = Date.now() + 24 * 60 * 60 * 1000 // 24 heures
+          const updatedUser = { ...user, lastLogin: new Date().toISOString() }
+
           set((state) => ({
-            users: state.users.map((u) => (u.id === user.id ? { ...u, lastLogin: new Date().toISOString() } : u)),
-            currentUser: { ...user, lastLogin: new Date().toISOString() },
+            users: state.users.map((u) => (u.id === user.id ? updatedUser : u)),
+            currentUser: updatedUser,
             sessionExpiry,
           }))
 
+          console.log("✅ Connexion réussie")
           return true
         }
+
+        console.log("❌ Connexion échouée")
         return false
       },
 
       logout: () => {
+        console.log("🚪 Déconnexion")
         set({ currentUser: null, sessionExpiry: null })
       },
 
@@ -100,14 +125,12 @@ export const useAuth = create<AuthState>()(
 
         const user = users[userIndex]
 
-        // Mettre à jour le mot de passe si fourni
         if (updates.password) {
           passwords[user.username] = updates.password
         }
 
-        // Mettre à jour les informations utilisateur
         const updatedUser = { ...user, ...updates }
-        delete (updatedUser as any).password // Retirer le mot de passe des données utilisateur
+        delete (updatedUser as any).password
 
         set((state) => ({
           users: state.users.map((u) => (u.id === userId ? updatedUser : u)),
@@ -123,7 +146,6 @@ export const useAuth = create<AuthState>()(
 
         if (!user) return false
 
-        // Supprimer le mot de passe
         delete passwords[user.username]
 
         set((state) => ({
@@ -136,7 +158,7 @@ export const useAuth = create<AuthState>()(
       extendSession: () => {
         const currentUser = get().currentUser
         if (currentUser) {
-          const sessionExpiry = Date.now() + 8 * 60 * 60 * 1000 // 8 heures
+          const sessionExpiry = Date.now() + 24 * 60 * 60 * 1000
           set({ sessionExpiry })
         }
       },
@@ -156,3 +178,6 @@ export const useAuth = create<AuthState>()(
     },
   ),
 )
+
+// Export alias pour compatibilité
+export const useAuthStore = useAuth
