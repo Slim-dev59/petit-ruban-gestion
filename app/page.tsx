@@ -12,35 +12,12 @@ import { SettingsPanel } from "@/components/settings-panel"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { UserMenu } from "@/components/auth/user-menu"
 import { useStore } from "@/lib/store"
-import {
-  Upload,
-  Users,
-  Package,
-  TrendingUp,
-  FileText,
-  CreditCard,
-  Settings,
-  AlertCircle,
-  Zap,
-  BarChart3,
-  Euro,
-  ShoppingBag,
-} from "lucide-react"
+import { Upload, Users, Package, TrendingUp, FileText, CreditCard, Settings, AlertCircle, Zap } from "lucide-react"
 import { HomeIcon } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 function AppContent() {
-  const { settings, getTotalPendingSales, creators, stockData, monthlyData } = useStore()
+  const { settings, getTotalPendingSales } = useStore()
   const pendingSalesCount = getTotalPendingSales()
-
-  // Calculer les statistiques du tableau de bord
-  const totalSales = Object.values(monthlyData).reduce((sum, month) => sum + month.salesData.length, 0)
-  const totalRevenue = Object.values(monthlyData).reduce(
-    (sum, month) => sum + month.salesData.reduce((monthSum, sale) => monthSum + (sale.montant || 0), 0),
-    0,
-  )
-  const totalParticipations = Object.values(monthlyData).reduce((sum, month) => sum + month.participations.length, 0)
-  const averageSaleValue = totalSales > 0 ? totalRevenue / totalSales : 0
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -71,7 +48,7 @@ function AppContent() {
                 </div>
               )}
               <div className="text-center">
-                <h1 className="text-2xl font-bold">{settings.shopName}</h1>
+                <h1 className="text-2xl font-bold text-slate-900">{settings.shopName}</h1>
                 <p className="text-sm font-medium text-slate-600">{settings.shopSubtitle}</p>
               </div>
             </div>
@@ -91,157 +68,96 @@ function AppContent() {
       {/* Navigation moderne avec design cards */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <Tabs defaultValue="dashboard" className="w-full">
-            <TabsList className="grid grid-cols-9 gap-2">
-              <TabsTrigger value="dashboard" className="flex items-center space-x-2">
-                <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">Tableau de bord</span>
+          <Tabs defaultValue="import" className="w-full">
+            <TabsList className="h-auto w-full bg-slate-100 rounded-2xl p-2 grid grid-cols-8 gap-2">
+              <TabsTrigger
+                value="import"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <Upload className="h-4 w-4" />
+                  <span className="hidden sm:inline">Import</span>
+                  {pendingSalesCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
+                      {pendingSalesCount > 99 ? "99+" : pendingSalesCount}
+                    </span>
+                  )}
+                </div>
               </TabsTrigger>
 
-              <TabsTrigger value="import" className="relative flex items-center space-x-2">
-                <Upload className="h-4 w-4" />
-                <span className="hidden sm:inline">Import</span>
-                {pendingSalesCount > 0 && (
-                  <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
-                    {pendingSalesCount > 99 ? "99+" : pendingSalesCount}
-                  </span>
-                )}
+              <TabsTrigger
+                value="creators"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">Créateurs</span>
+                </div>
               </TabsTrigger>
 
-              <TabsTrigger value="creators" className="flex items-center space-x-2">
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Créateurs</span>
+              <TabsTrigger
+                value="stock"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <Package className="h-4 w-4" />
+                  <span className="hidden sm:inline">Stock</span>
+                </div>
               </TabsTrigger>
 
-              <TabsTrigger value="stock" className="flex items-center space-x-2">
-                <Package className="h-4 w-4" />
-                <span className="hidden sm:inline">Stock</span>
+              <TabsTrigger
+                value="sales"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="hidden sm:inline">Ventes</span>
+                </div>
               </TabsTrigger>
 
-              <TabsTrigger value="sales" className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4" />
-                <span className="hidden sm:inline">Ventes</span>
+              <TabsTrigger
+                value="reports"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-4 w-4" />
+                  <span className="hidden sm:inline">Rapports</span>
+                </div>
               </TabsTrigger>
 
-              <TabsTrigger value="reports" className="flex items-center space-x-2">
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Rapports</span>
+              <TabsTrigger
+                value="payments"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <CreditCard className="h-4 w-4" />
+                  <span className="hidden sm:inline">Paiements</span>
+                </div>
               </TabsTrigger>
 
-              <TabsTrigger value="payments" className="flex items-center space-x-2">
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Paiements</span>
+              <TabsTrigger
+                value="participations"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <HomeIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Loyers</span>
+                </div>
               </TabsTrigger>
 
-              <TabsTrigger value="participations" className="flex items-center space-x-2">
-                <HomeIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Loyers</span>
-              </TabsTrigger>
-
-              <TabsTrigger value="settings" className="flex items-center space-x-2">
-                <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Config</span>
+              <TabsTrigger
+                value="settings"
+                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+              >
+                <div className="flex items-center space-x-2">
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Config</span>
+                </div>
               </TabsTrigger>
             </TabsList>
 
             {/* Contenu avec fond moderne */}
             <div className="py-8">
-              <TabsContent value="dashboard" className="mt-0">
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold">Tableau de bord</h2>
-                      <p className="text-slate-600 font-medium">Vue d'ensemble de votre activité</p>
-                    </div>
-                  </div>
-
-                  {/* Indicateurs principaux */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <Card className="bg-white border-slate-200 shadow-lg">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Créateurs actifs</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{creators.length}</div>
-                        <p className="text-xs text-muted-foreground">
-                          {creators.filter((c) => c.isActive).length} actifs
-                        </p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-slate-200 shadow-lg">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Articles en stock</CardTitle>
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{stockData.length}</div>
-                        <p className="text-xs text-muted-foreground">Inventaire total</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-slate-200 shadow-lg">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Ventes totales</CardTitle>
-                        <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{totalSales}</div>
-                        <p className="text-xs text-muted-foreground">Transactions réalisées</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-slate-200 shadow-lg">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Chiffre d'affaires</CardTitle>
-                        <Euro className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{totalRevenue.toFixed(2)}€</div>
-                        <p className="text-xs text-muted-foreground">Revenus générés</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Indicateurs secondaires */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card className="bg-white border-slate-200 shadow-lg">
-                      <CardHeader>
-                        <CardTitle className="text-sm font-medium">Panier moyen</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-xl font-bold">{averageSaleValue.toFixed(2)}€</div>
-                        <p className="text-xs text-muted-foreground">Valeur moyenne par vente</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-slate-200 shadow-lg">
-                      <CardHeader>
-                        <CardTitle className="text-sm font-medium">Participations</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-xl font-bold">{totalParticipations}</div>
-                        <p className="text-xs text-muted-foreground">Loyers enregistrés</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-white border-slate-200 shadow-lg">
-                      <CardHeader>
-                        <CardTitle className="text-sm font-medium">Ventes en attente</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-xl font-bold text-red-600">{pendingSalesCount}</div>
-                        <p className="text-xs text-muted-foreground">À traiter</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Graphiques et analyses */}
-                  <SalesAnalytics />
-                </div>
-              </TabsContent>
-
               <TabsContent value="import" className="mt-0">
                 <ImportFiles />
               </TabsContent>

@@ -151,15 +151,15 @@ export function ImportFiles() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Import des fichiers</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Import des fichiers</h2>
           <p className="text-slate-600 font-medium">Importez vos données de stock et de ventes</p>
         </div>
         <div className="flex gap-4">
-          <Badge variant="outline" className="flex items-center gap-2 bg-white border-slate-200">
+          <Badge variant="outline" className="flex items-center gap-2 bg-white border-slate-200 text-slate-700">
             <Users className="h-4 w-4" />
             {creators.length} créateurs
           </Badge>
-          <Badge variant="outline" className="flex items-center gap-2 bg-white border-slate-200">
+          <Badge variant="outline" className="flex items-center gap-2 bg-white border-slate-200 text-slate-700">
             <Package className="h-4 w-4" />
             {stockData.length} articles
           </Badge>
@@ -167,42 +167,63 @@ export function ImportFiles() {
       </div>
 
       <Tabs defaultValue="stock" className="space-y-6">
-        <TabsList className="grid grid-cols-3">
-          <TabsTrigger value="stock" className="flex items-center space-x-2">
-            <Package className="h-4 w-4" />
-            <span>Import Stock</span>
+        <TabsList className="h-auto w-full bg-slate-100 rounded-2xl p-2 grid grid-cols-3 gap-2">
+          <TabsTrigger
+            value="stock"
+            className="h-12 rounded-xl border-0 bg-transparent text-slate-700 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-2">
+              <Package className="h-4 w-4" />
+              <span>Import Stock</span>
+            </div>
           </TabsTrigger>
 
-          <TabsTrigger value="sales" className="flex items-center space-x-2">
-            <Upload className="h-4 w-4" />
-            <span>Import Ventes</span>
+          <TabsTrigger
+            value="sales"
+            className="h-12 rounded-xl border-0 bg-transparent text-slate-700 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-2">
+              <Upload className="h-4 w-4" />
+              <span>Import Ventes</span>
+            </div>
           </TabsTrigger>
 
-          <TabsTrigger value="history" className="flex items-center space-x-2">
-            <History className="h-4 w-4" />
-            <span>Historique</span>
+          <TabsTrigger
+            value="history"
+            className="h-12 rounded-xl border-0 bg-transparent text-slate-700 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-2">
+              <History className="h-4 w-4" />
+              <span>Historique</span>
+            </div>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="stock">
           <Card className="bg-white border-slate-200 shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900">
                 <Upload className="h-5 w-5" />
                 Import du stock
               </CardTitle>
-              <CardDescription className="font-medium">
+              <CardDescription className="text-slate-600 font-medium">
                 Importez le fichier CSV d'export SumUp. Les créateurs seront détectés automatiquement à partir des "Item
                 name" et les articles à partir des "Variations".
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="stock-file" className="font-semibold">
+                <Label htmlFor="stock-file" className="text-slate-900 font-semibold">
                   Fichier de stock (CSV)
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input id="stock-file" type="file" accept=".csv" onChange={handleStockFileChange} />
+                  <Input
+                    id="stock-file"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleStockFileChange}
+                    className="text-slate-900"
+                  />
                   {stockFile && <CheckCircle className="h-4 w-4 text-green-500" />}
                 </div>
               </div>
@@ -222,7 +243,7 @@ export function ImportFiles() {
                   ) : (
                     <CheckCircle className="h-4 w-4" />
                   )}
-                  <AlertDescription className="font-medium">{importStatus.message}</AlertDescription>
+                  <AlertDescription className="text-slate-900 font-medium">{importStatus.message}</AlertDescription>
                 </Alert>
               )}
             </CardContent>
@@ -236,11 +257,11 @@ export function ImportFiles() {
         <TabsContent value="history">
           <Card className="bg-white border-slate-200 shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-slate-900">
                 <History className="h-5 w-5" />
                 Historique des imports
               </CardTitle>
-              <CardDescription className="font-medium">
+              <CardDescription className="text-slate-600 font-medium">
                 Consultez l'historique de vos imports de ventes et leurs statistiques
               </CardDescription>
             </CardHeader>
@@ -248,29 +269,31 @@ export function ImportFiles() {
               {importHistory.length === 0 ? (
                 <div className="text-center py-8">
                   <History className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-                  <p className="font-semibold">Aucun import effectué</p>
+                  <p className="text-slate-900 font-semibold">Aucun import effectué</p>
                   <p className="text-sm text-slate-600">L'historique de vos imports apparaîtra ici</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-semibold">Date</TableHead>
-                      <TableHead className="font-semibold">Fichier</TableHead>
-                      <TableHead className="font-semibold">Ventes totales</TableHead>
-                      <TableHead className="font-semibold">Assignées</TableHead>
-                      <TableHead className="font-semibold">Non assignées</TableHead>
-                      <TableHead className="font-semibold">Mois</TableHead>
-                      <TableHead className="font-semibold">Actions</TableHead>
+                      <TableHead className="text-slate-900 font-semibold">Date</TableHead>
+                      <TableHead className="text-slate-900 font-semibold">Fichier</TableHead>
+                      <TableHead className="text-slate-900 font-semibold">Ventes totales</TableHead>
+                      <TableHead className="text-slate-900 font-semibold">Assignées</TableHead>
+                      <TableHead className="text-slate-900 font-semibold">Non assignées</TableHead>
+                      <TableHead className="text-slate-900 font-semibold">Mois</TableHead>
+                      <TableHead className="text-slate-900 font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {importHistory.map((importItem) => (
                       <TableRow key={importItem.id}>
-                        <TableCell>{new Date(importItem.importDate).toLocaleDateString("fr-FR")}</TableCell>
-                        <TableCell className="font-medium">{importItem.fileName}</TableCell>
+                        <TableCell className="text-slate-900">
+                          {new Date(importItem.importDate).toLocaleDateString("fr-FR")}
+                        </TableCell>
+                        <TableCell className="font-medium text-slate-900">{importItem.fileName}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-white border-slate-200">
+                          <Badge variant="outline" className="bg-white border-slate-200 text-slate-700">
                             {importItem.salesCount}
                           </Badge>
                         </TableCell>
@@ -285,7 +308,11 @@ export function ImportFiles() {
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {importItem.months.map((month) => (
-                              <Badge key={month} variant="secondary" className="text-xs bg-slate-100 border-slate-200">
+                              <Badge
+                                key={month}
+                                variant="secondary"
+                                className="text-xs bg-slate-100 text-slate-700 border-slate-200"
+                              >
                                 {month}
                               </Badge>
                             ))}

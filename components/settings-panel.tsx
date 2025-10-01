@@ -26,12 +26,11 @@ import {
   Home,
   Users,
   Shield,
-  Type,
-  Palette,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useAuth } from "@/lib/auth"
 import { UserManagement } from "@/components/auth/user-management"
+import { Type } from "lucide-react"
 
 export function SettingsPanel() {
   const { settings, updateSettings, resetAllData, creators, stockData, monthlyData } = useStore()
@@ -124,12 +123,8 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      <Tabs defaultValue="appearance" className="space-y-6">
-        <TabsList className="grid grid-cols-5">
-          <TabsTrigger value="appearance" className="flex items-center space-x-2">
-            <Palette className="h-4 w-4" />
-            <span>Apparence</span>
-          </TabsTrigger>
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general" className="flex items-center space-x-2">
             <Settings className="h-4 w-4" />
             <span>Général</span>
@@ -148,7 +143,7 @@ export function SettingsPanel() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="appearance" className="space-y-6">
+        <TabsContent value="general" className="space-y-6">
           {/* Paramètres d'apparence */}
           <Card>
             <CardHeader>
@@ -214,20 +209,9 @@ export function SettingsPanel() {
                   )}
                 </div>
               </div>
-
-              <Separator />
-
-              <div className="flex justify-between">
-                <Button onClick={handleSave} className="flex items-center gap-2">
-                  <Save className="h-4 w-4" />
-                  Sauvegarder l'apparence
-                </Button>
-              </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="general" className="space-y-6">
           {/* Paramètres généraux */}
           <Card>
             <CardHeader>
@@ -317,7 +301,7 @@ export function SettingsPanel() {
               <CardContent className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <Shield className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Accès administrateur requis</h3>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Accès administrateur requis</h3>
                   <p className="text-slate-600">Vous devez être administrateur pour gérer les utilisateurs.</p>
                 </div>
               </CardContent>
