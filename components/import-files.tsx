@@ -23,52 +23,85 @@ export function ImportFiles() {
   const { importStockData, stockData, creators, getImportHistory, removeImportHistory } = useStore()
 
   const parseCSV = (text: string): any[] => {
-    const lines = text.split("\n")
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
+    console.log("📝 Parsing CSV...")
+    console.log("Longueur du texte:", text.length)
 
-    console.log("📋 Headers du fichier de stock:", headers)
+    const lines = text.split("\n")
+    console.log("📊 Nombre de lignes:", lines.length)
+
+    // Parser la première ligne pour les headers
+    const headerLine = lines[0]
+    const headers: string[] = []
+    let current = ""
+    let inQuotes = false
+
+    for (let i = 0; i < headerLine.length; i++) {
+      const char = headerLine[i]
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === "," && !inQuotes) {
+        headers.push(current.trim().replace(/^"|"$/g, ""))
+        current = ""
+      } else {
+        current += char
+      }
+    }
+    headers.push(current.trim().replace(/^"|"$/g, ""))
+
+    console.log("📋 Headers détectés:", headers)
     console.log("📊 Nombre de colonnes:", headers.length)
 
-    return lines
-      .slice(1)
-      .map((line, lineIndex) => {
-        // Parsing CSV amélioré pour gérer les virgules dans les valeurs entre guillemets
-        const values: string[] = []
-        let current = ""
-        let inQuotes = false
+    // Parser les lignes de données
+    const data: any[] = []
 
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i]
-          if (char === '"') {
-            inQuotes = !inQuotes
-          } else if (char === "," && !inQuotes) {
-            values.push(current.trim())
-            current = ""
-          } else {
-            current += char
-          }
+    for (let lineIndex = 1; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex]
+      if (!line.trim()) continue
+
+      const values: string[] = []
+      let current = ""
+      let inQuotes = false
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i]
+        if (char === '"') {
+          inQuotes = !inQuotes
+        } else if (char === "," && !inQuotes) {
+          values.push(current.trim().replace(/^"|"$/g, ""))
+          current = ""
+        } else {
+          current += char
         }
-        values.push(current.trim()) // Ajouter la dernière valeur
+      }
+      values.push(current.trim().replace(/^"|"$/g, ""))
 
-        const obj: any = {}
-        headers.forEach((header, index) => {
-          obj[header] = values[index] || ""
-        })
-
-        // Log détaillé pour les 5 premières lignes
-        if (lineIndex < 5) {
-          console.log(`📄 Ligne ${lineIndex + 1}:`, obj)
-        }
-
-        return obj
+      const obj: any = {}
+      headers.forEach((header, index) => {
+        obj[header] = values[index] || ""
       })
-      .filter((row) => Object.values(row).some((val) => val !== ""))
+
+      // Log des 5 premières lignes pour debug
+      if (lineIndex <= 5) {
+        console.log(`📄 Ligne ${lineIndex}:`, {
+          "Item name": obj["Item name"],
+          Variations: obj["Variations"],
+          Price: obj["Price"],
+          Quantity: obj["Quantity"],
+        })
+      }
+
+      data.push(obj)
+    }
+
+    console.log("✅ Parsing terminé:", data.length, "lignes de données")
+    return data.filter((row) => Object.values(row).some((val) => val !== ""))
   }
 
   const handleStockFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       console.log("📁 Fichier sélectionné:", file.name)
+      console.log("📏 Taille:", (file.size / 1024).toFixed(2), "KB")
       setStockFile(file)
       setImportStatus(null)
     }
@@ -84,17 +117,24 @@ export function ImportFiles() {
     setImportStatus(null)
 
     try {
-      console.log("🔄 Début de l'import du fichier:", stockFile.name)
+      console.log("\n🚀 Début de l'import")
+      console.log("=".repeat(80))
+
       const stockText = await stockFile.text()
-      console.log("📝 Contenu du fichier (premiers 500 caractères):", stockText.substring(0, 500))
+      console.log("📝 Fichier lu, longueur:", stockText.length, "caractères")
+      console.log("📄 Premiers 500 caractères:", stockText.substring(0, 500))
 
       const stockDataRaw = parseCSV(stockText)
-      console.log("📊 Données brutes parsées:", stockDataRaw.length, "lignes")
+      console.log("📊 Données parsées:", stockDataRaw.length, "lignes")
 
-      // Traitement spécifique pour le format SumUp
+      // Traitement pour détecter créateurs et articles
       const processedData: any[] = []
       let currentCreator = ""
       const creatorsFound = new Set<string>()
+      const warnings: string[] = []
+
+      console.log("\n🔍 Analyse des données:")
+      console.log("=".repeat(80))
 
       stockDataRaw.forEach((row, index) => {
         const itemName = (row["Item name"] || "").trim()
@@ -106,24 +146,24 @@ export function ImportFiles() {
         const lowStockThreshold = (row["Low stock threshold"] || "0").trim()
         const image = (row["Image 1"] || "").trim()
 
-        // Log détaillé pour les 10 premières lignes
+        // Log détaillé des 10 premières lignes
         if (index < 10) {
-          console.log(`\n🔍 Ligne ${index + 1}:`)
-          console.log("  - Item name:", itemName)
-          console.log("  - Variations:", variations)
-          console.log("  - Prix:", price)
-          console.log("  - Quantité:", quantity)
+          console.log(`\n📄 Ligne ${index + 1}:`)
+          console.log(`  Item name: "${itemName}"`)
+          console.log(`  Variations: "${variations}"`)
+          console.log(`  Price: ${price}`)
+          console.log(`  Quantity: ${quantity}`)
         }
 
-        // Si on a un Item name mais pas de Variations, c'est un créateur
+        // Détection des créateurs: Item name présent mais pas de Variations
         if (itemName && !variations) {
           currentCreator = itemName
           creatorsFound.add(currentCreator)
-          console.log(`👤 Nouveau créateur détecté: "${currentCreator}"`)
+          console.log(`\n👤 CRÉATEUR détecté: "${currentCreator}"`)
           return
         }
 
-        // Si on a des Variations et un créateur actuel, c'est un article
+        // Détection des articles: Variations présent avec un créateur actif
         if (variations && currentCreator) {
           const stockItem = {
             createur: currentCreator,
@@ -136,50 +176,84 @@ export function ImportFiles() {
             image: image,
           }
 
-          console.log(`✅ Article ajouté pour ${currentCreator}:`, stockItem.article)
+          if (index < 10) {
+            console.log(`  ✅ Article ajouté pour "${currentCreator}": "${variations}"`)
+          }
+
           processedData.push(stockItem)
         } else if (variations && !currentCreator) {
-          console.warn(`⚠️ Article trouvé sans créateur: ${variations}`)
+          const warning = `⚠️ Ligne ${index + 1}: Article "${variations}" trouvé sans créateur`
+          warnings.push(warning)
+          if (warnings.length <= 5) {
+            console.warn(warning)
+          }
         }
       })
 
-      console.log("\n📈 Résumé de l'import:")
-      console.log("  - Créateurs trouvés:", Array.from(creatorsFound))
-      console.log("  - Articles traités:", processedData.length)
-      console.log("  - Échantillon:", processedData.slice(0, 3))
+      console.log("\n📈 RÉSUMÉ DE L'IMPORT:")
+      console.log("=".repeat(80))
+      console.log(`👥 Créateurs trouvés: ${creatorsFound.size}`)
+      console.log(`📦 Articles traités: ${processedData.length}`)
+      console.log(`⚠️  Avertissements: ${warnings.length}`)
+
+      if (creatorsFound.size > 0) {
+        console.log("\n👥 Liste des créateurs:")
+        Array.from(creatorsFound).forEach((creator, i) => {
+          const articlesCount = processedData.filter((item) => item.createur === creator).length
+          console.log(`  ${i + 1}. "${creator}" - ${articlesCount} article(s)`)
+        })
+      }
+
+      if (processedData.length > 0) {
+        console.log("\n📦 Échantillon d'articles:")
+        processedData.slice(0, 5).forEach((item, i) => {
+          console.log(`  ${i + 1}. "${item.article}" (${item.createur}) - ${item.price}€`)
+        })
+      }
 
       if (processedData.length === 0) {
+        const errorMsg =
+          creatorsFound.size > 0
+            ? `❌ ${creatorsFound.size} créateur(s) trouvé(s) mais aucun article. Vérifiez que les articles ont bien une valeur dans la colonne "Variations".`
+            : "❌ Aucun créateur ni article trouvé. Vérifiez le format du fichier CSV."
+
+        console.error(errorMsg)
         setImportStatus({
           type: "error",
-          message: "❌ Aucun article trouvé. Vérifiez le format du fichier CSV.",
+          message: errorMsg,
         })
         setImporting(false)
         return
       }
 
+      console.log("\n💾 Import des données dans le store...")
       importStockData(processedData)
+      console.log("✅ Import terminé avec succès!")
+
+      const warningText = warnings.length > 0 ? ` (${warnings.length} article(s) sans créateur ignoré(s))` : ""
 
       setImportStatus({
         type: "success",
-        message: `✅ ${processedData.length} articles importés avec succès pour ${creatorsFound.size} créateur(s) !`,
+        message: `✅ ${processedData.length} article(s) importé(s) avec succès pour ${creatorsFound.size} créateur(s)${warningText}`,
       })
 
       // Reset
       setStockFile(null)
-
-      // Reset input file
       const fileInput = document.getElementById("stock-file") as HTMLInputElement
       if (fileInput) {
         fileInput.value = ""
       }
     } catch (error) {
-      console.error("❌ Erreur lors de l'import:", error)
+      console.error("❌ ERREUR lors de l'import:", error)
+      console.error("Stack trace:", error instanceof Error ? error.stack : "N/A")
       setImportStatus({
         type: "error",
-        message: `❌ Erreur lors de l'analyse du fichier: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+        message: `❌ Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
       })
     } finally {
       setImporting(false)
+      console.log("\n" + "=".repeat(80))
+      console.log("🏁 Fin de l'import")
     }
   }
 
@@ -242,11 +316,10 @@ export function ImportFiles() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-slate-900">
                 <Upload className="h-5 w-5" />
-                Import du stock
+                Import du stock SumUp
               </CardTitle>
               <CardDescription className="text-slate-600 font-medium">
-                Importez le fichier CSV d'export SumUp. Les créateurs seront détectés automatiquement à partir des "Item
-                name" et les articles à partir des "Variations".
+                Importez le fichier CSV d'export depuis SumUp (Items Export)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -266,14 +339,14 @@ export function ImportFiles() {
                 </div>
                 {stockFile && (
                   <p className="text-sm text-slate-600">
-                    📁 Fichier sélectionné: <strong>{stockFile.name}</strong> ({(stockFile.size / 1024).toFixed(2)} KB)
+                    📁 <strong>{stockFile.name}</strong> ({(stockFile.size / 1024).toFixed(2)} KB)
                   </p>
                 )}
               </div>
 
-              <Button onClick={handleStockImport} disabled={!stockFile || importing} className="w-full">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                {importing ? "Import en cours..." : "Importer le stock"}
+              <Button onClick={handleStockImport} disabled={!stockFile || importing} className="w-full h-12 text-base">
+                <FileSpreadsheet className="h-5 w-5 mr-2" />
+                {importing ? "⏳ Import en cours..." : "🚀 Importer le stock"}
               </Button>
 
               {importStatus && (
@@ -282,27 +355,52 @@ export function ImportFiles() {
                   className={importStatus.type === "error" ? "" : "bg-green-50 border-green-200"}
                 >
                   {importStatus.type === "error" ? (
-                    <AlertCircle className="h-4 w-4" />
+                    <AlertCircle className="h-5 w-5" />
                   ) : (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <CheckCircle className="h-5 w-5 text-green-600" />
                   )}
-                  <AlertDescription className={importStatus.type === "error" ? "" : "text-green-800 font-medium"}>
+                  <AlertDescription
+                    className={importStatus.type === "error" ? "text-base" : "text-green-800 font-medium text-base"}
+                  >
                     {importStatus.message}
                   </AlertDescription>
                 </Alert>
               )}
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-900 mb-2">💡 Format attendu:</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>
-                    • Les <strong>Item name</strong> sans <strong>Variations</strong> sont des créateurs
-                  </li>
-                  <li>
-                    • Les lignes avec <strong>Variations</strong> sont les articles du créateur précédent
-                  </li>
-                  <li>• Le fichier doit être au format CSV avec des colonnes séparées par des virgules</li>
-                </ul>
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Format du fichier SumUp
+                </h4>
+                <div className="space-y-2 text-sm text-blue-800">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">1.</span>
+                    <span>Exportez vos articles depuis SumUp (Items Export)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">2.</span>
+                    <span>
+                      Les lignes avec <strong>"Item name"</strong> mais sans <strong>"Variations"</strong> sont les
+                      créateurs
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold">3.</span>
+                    <span>
+                      Les lignes avec <strong>"Variations"</strong> sont les articles du créateur précédent
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
+                <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Conseil
+                </h4>
+                <p className="text-sm text-amber-800">
+                  Ouvrez la console (F12) pour voir les détails de l'import et diagnostiquer les problèmes éventuels.
+                </p>
               </div>
             </CardContent>
           </Card>
