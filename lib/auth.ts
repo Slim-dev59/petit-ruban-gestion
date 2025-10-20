@@ -35,11 +35,11 @@ interface AuthState {
 
 const SESSION_DURATION = 8 * 60 * 60 * 1000 // 8 heures
 
-// Utilisateur temporaire pour l'accès initial (à supprimer après création d'un admin)
+// ⚠️ IDENTIFIANTS PAR DÉFAUT - Utilisateur temporaire pour l'accès initial
 const INITIAL_USER: User = {
   id: "temp-admin",
   username: "setup",
-  password: "Setup2024!",
+  password: "test",
   displayName: "Configuration Initiale",
   role: "admin",
   createdAt: new Date().toISOString(),
