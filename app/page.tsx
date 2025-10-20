@@ -2,205 +2,151 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImportFiles } from "@/components/import-files"
+import { SalesImport } from "@/components/sales-import"
 import { CreatorManagement } from "@/components/creator-management"
 import { StockOverview } from "@/components/stock-overview"
-import { SalesAnalytics } from "@/components/sales-analytics"
 import { PDFGenerator } from "@/components/pdf-generator"
 import { PaymentManagement } from "@/components/payment-management"
 import { ParticipationManagement } from "@/components/participation-management"
 import { SettingsPanel } from "@/components/settings-panel"
+import { SalesAnalytics } from "@/components/sales-analytics"
+import { ArchiveManagement } from "@/components/archive-management"
+import { CreatorStockAssignment } from "@/components/creator-stock-assignment"
+import { RentInvoiceGenerator } from "@/components/rent-invoice-generator"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { UserMenu } from "@/components/auth/user-menu"
+import { Badge } from "@/components/ui/badge"
+import { Upload, Users, Package, FileText, DollarSign, Settings, BarChart3, Archive, Link, Receipt } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { Upload, Users, Package, TrendingUp, FileText, CreditCard, Settings, AlertCircle, Zap } from "lucide-react"
-import { HomeIcon } from "lucide-react"
 
-function AppContent() {
-  const { settings, getTotalPendingSales } = useStore()
+export default function Home() {
+  const { getTotalPendingSales } = useStore()
   const pendingSalesCount = getTotalPendingSales()
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header moderne avec glassmorphism */}
-      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 py-5">
-          <div className="flex items-center justify-between">
-            {/* Notifications à gauche */}
-            <div className="flex-1">
-              {pendingSalesCount > 0 && (
-                <div className="flex items-center space-x-2 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl px-4 py-2 shadow-sm w-fit">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-semibold text-red-800">{pendingSalesCount} en attente</span>
-                </div>
-              )}
+    <AuthGuard>
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="container mx-auto p-6 max-w-7xl">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Gestion Multi-Créateurs
+              </h1>
+              <p className="text-slate-600 mt-2">Tableau de bord complet pour votre boutique</p>
             </div>
-
-            {/* Logo et titre centrés */}
-            <div className="flex items-center space-x-4 flex-1 justify-center">
-              {settings.logoUrl && (
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl blur opacity-25 group-hover:opacity-75 transition duration-300"></div>
-                  <img
-                    src={settings.logoUrl || "/placeholder.svg"}
-                    alt="Logo"
-                    className="relative w-12 h-12 object-cover rounded-xl border border-slate-200 shadow-sm"
-                  />
-                </div>
-              )}
-              <div className="text-center">
-                <h1 className="text-2xl font-bold text-slate-900">{settings.shopName}</h1>
-                <p className="text-sm font-medium text-slate-600">{settings.shopSubtitle}</p>
-              </div>
-            </div>
-
-            {/* Menu utilisateur et statut à droite */}
-            <div className="flex items-center space-x-4 flex-1 justify-end">
-              <div className="flex items-center space-x-2 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl px-3 py-2 shadow-sm">
-                <Zap className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-semibold text-emerald-800">Sécurisé</span>
-              </div>
-              <UserMenu />
-            </div>
+            <UserMenu />
           </div>
-        </div>
-      </header>
 
-      {/* Navigation moderne avec design cards */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <Tabs defaultValue="import" className="w-full">
-            <TabsList className="h-auto w-full bg-slate-100 rounded-2xl p-2 grid grid-cols-8 gap-2">
-              <TabsTrigger
-                value="import"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Upload className="h-4 w-4" />
-                  <span className="hidden sm:inline">Import</span>
-                  {pendingSalesCount > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
-                      {pendingSalesCount > 99 ? "99+" : pendingSalesCount}
-                    </span>
-                  )}
-                </div>
+          <Tabs defaultValue="import" className="space-y-6">
+            <TabsList className="grid grid-cols-6 lg:grid-cols-12 gap-2 h-auto p-2 bg-white/80 backdrop-blur-sm">
+              <TabsTrigger value="import" className="flex flex-col gap-1 h-auto py-3">
+                <Upload className="h-4 w-4" />
+                <span className="text-xs">Import</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="creators"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Créateurs</span>
-                </div>
+              <TabsTrigger value="sales" className="flex flex-col gap-1 h-auto py-3 relative">
+                <Upload className="h-4 w-4" />
+                <span className="text-xs">Ventes</span>
+                {pendingSalesCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  >
+                    {pendingSalesCount}
+                  </Badge>
+                )}
               </TabsTrigger>
-
-              <TabsTrigger
-                value="stock"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Package className="h-4 w-4" />
-                  <span className="hidden sm:inline">Stock</span>
-                </div>
+              <TabsTrigger value="assign" className="flex flex-col gap-1 h-auto py-3">
+                <Link className="h-4 w-4" />
+                <span className="text-xs">Assigner</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="sales"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4" />
-                  <span className="hidden sm:inline">Ventes</span>
-                </div>
+              <TabsTrigger value="creators" className="flex flex-col gap-1 h-auto py-3">
+                <Users className="h-4 w-4" />
+                <span className="text-xs">Créateurs</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="reports"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <FileText className="h-4 w-4" />
-                  <span className="hidden sm:inline">Rapports</span>
-                </div>
+              <TabsTrigger value="stock" className="flex flex-col gap-1 h-auto py-3">
+                <Package className="h-4 w-4" />
+                <span className="text-xs">Stock</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="payments"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <CreditCard className="h-4 w-4" />
-                  <span className="hidden sm:inline">Paiements</span>
-                </div>
+              <TabsTrigger value="analytics" className="flex flex-col gap-1 h-auto py-3">
+                <BarChart3 className="h-4 w-4" />
+                <span className="text-xs">Analyses</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="participations"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <HomeIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Loyers</span>
-                </div>
+              <TabsTrigger value="reports" className="flex flex-col gap-1 h-auto py-3">
+                <FileText className="h-4 w-4" />
+                <span className="text-xs">Rapports</span>
               </TabsTrigger>
-
-              <TabsTrigger
-                value="settings"
-                className="relative h-12 rounded-xl border-0 bg-transparent text-slate-900 font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md hover:bg-white/50 transition-all duration-300"
-              >
-                <div className="flex items-center space-x-2">
-                  <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">Config</span>
-                </div>
+              <TabsTrigger value="rent-invoices" className="flex flex-col gap-1 h-auto py-3">
+                <Receipt className="h-4 w-4" />
+                <span className="text-xs">Factures</span>
+              </TabsTrigger>
+              <TabsTrigger value="payments" className="flex flex-col gap-1 h-auto py-3">
+                <DollarSign className="h-4 w-4" />
+                <span className="text-xs">Paiements</span>
+              </TabsTrigger>
+              <TabsTrigger value="participations" className="flex flex-col gap-1 h-auto py-3">
+                <Link className="h-4 w-4" />
+                <span className="text-xs">Loyers</span>
+              </TabsTrigger>
+              <TabsTrigger value="archives" className="flex flex-col gap-1 h-auto py-3">
+                <Archive className="h-4 w-4" />
+                <span className="text-xs">Archives</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex flex-col gap-1 h-auto py-3">
+                <Settings className="h-4 w-4" />
+                <span className="text-xs">Réglages</span>
               </TabsTrigger>
             </TabsList>
 
-            {/* Contenu avec fond moderne */}
-            <div className="py-8">
-              <TabsContent value="import" className="mt-0">
-                <ImportFiles />
-              </TabsContent>
+            <TabsContent value="import">
+              <ImportFiles />
+            </TabsContent>
 
-              <TabsContent value="creators" className="mt-0">
-                <CreatorManagement />
-              </TabsContent>
+            <TabsContent value="sales">
+              <SalesImport />
+            </TabsContent>
 
-              <TabsContent value="stock" className="mt-0">
-                <StockOverview />
-              </TabsContent>
+            <TabsContent value="assign">
+              <CreatorStockAssignment />
+            </TabsContent>
 
-              <TabsContent value="sales" className="mt-0">
-                <SalesAnalytics />
-              </TabsContent>
+            <TabsContent value="creators">
+              <CreatorManagement />
+            </TabsContent>
 
-              <TabsContent value="reports" className="mt-0">
-                <PDFGenerator />
-              </TabsContent>
+            <TabsContent value="stock">
+              <StockOverview />
+            </TabsContent>
 
-              <TabsContent value="payments" className="mt-0">
-                <PaymentManagement />
-              </TabsContent>
+            <TabsContent value="analytics">
+              <SalesAnalytics />
+            </TabsContent>
 
-              <TabsContent value="participations" className="mt-0">
-                <ParticipationManagement />
-              </TabsContent>
+            <TabsContent value="reports">
+              <PDFGenerator />
+            </TabsContent>
 
-              <TabsContent value="settings" className="mt-0">
-                <SettingsPanel />
-              </TabsContent>
-            </div>
+            <TabsContent value="rent-invoices">
+              <RentInvoiceGenerator />
+            </TabsContent>
+
+            <TabsContent value="payments">
+              <PaymentManagement />
+            </TabsContent>
+
+            <TabsContent value="participations">
+              <ParticipationManagement />
+            </TabsContent>
+
+            <TabsContent value="archives">
+              <ArchiveManagement />
+            </TabsContent>
+
+            <TabsContent value="settings">
+              <SettingsPanel />
+            </TabsContent>
           </Tabs>
         </div>
-      </div>
-    </div>
-  )
-}
-
-export default function Home() {
-  return (
-    <AuthGuard>
-      <AppContent />
+      </main>
     </AuthGuard>
   )
 }

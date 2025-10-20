@@ -22,13 +22,11 @@ export function PDFGenerator() {
 
   const availableMonths = Object.keys(monthlyData).sort().reverse()
 
-  // Fonction pour obtenir les ventes selon la période sélectionnée
   const getSalesForPeriod = (creator: string) => {
     if (dateRange === "month") {
       const monthData = monthlyData[selectedMonth]
       return monthData ? monthData.salesData.filter((sale) => sale.createur === creator && sale.statut !== "payee") : []
     } else {
-      // Période personnalisée
       const startDate = new Date(customStartDate)
       const endDate = new Date(customEndDate)
 
@@ -41,7 +39,6 @@ export function PDFGenerator() {
     }
   }
 
-  // Fonction pour obtenir le stock du créateur
   const getCreatorStock = (creator: string) => {
     return stockData.filter((item) => item.createur === creator)
   }
@@ -60,7 +57,6 @@ export function PDFGenerator() {
         return
       }
 
-      // Calculs des ventes
       const totalSales = creatorSales.length
       const totalRevenue = creatorSales.reduce((sum, sale) => sum + Number.parseFloat(sale.prix || "0"), 0)
       const totalCommission = creatorSales.reduce((sum, sale) => {
@@ -70,18 +66,12 @@ export function PDFGenerator() {
       }, 0)
       const netAmount = totalRevenue - totalCommission
 
-      // Calculs du stock
       const totalStockItems = creatorStock.length
       const totalStockValue = creatorStock.reduce(
         (sum, item) => sum + Number.parseFloat(item.price) * Number.parseInt(item.quantity),
         0,
       )
-      const lowStockItems = creatorStock.filter(
-        (item) => Number.parseInt(item.quantity) <= Number.parseInt(item.lowStockThreshold || "0"),
-      )
-      const outOfStockItems = creatorStock.filter((item) => Number.parseInt(item.quantity) === 0)
 
-      // Obtenir le label de période
       const getPeriodLabel = () => {
         if (dateRange === "month") {
           return new Date(selectedMonth + "-01").toLocaleDateString("fr-FR", { year: "numeric", month: "long" })
@@ -90,219 +80,296 @@ export function PDFGenerator() {
         }
       }
 
-      // Générer le contenu HTML
       const htmlContent = `
         <!DOCTYPE html>
         <html lang="fr">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Rapport complet - ${selectedCreator}</title>
+          <title>Rapport - ${selectedCreator}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .shop-name { font-size: 24px; font-weight: bold; color: #2563eb; }
-            .report-title { font-size: 20px; margin: 10px 0; }
-            .period { color: #666; }
-            .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
-            .summary-card { background: #f8fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #2563eb; }
-            .summary-label { font-size: 14px; color: #666; margin-bottom: 5px; }
-            .summary-value { font-size: 24px; font-weight: bold; }
-            .positive { color: #16a34a; }
+            @page { 
+              size: A4 portrait; 
+              margin: 15mm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              color: #1a1a1a;
+              line-height: 1.6;
+              font-size: 10pt;
+              background: white;
+            }
+            .container {
+              max-width: 180mm;
+              margin: 0 auto;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 3px solid #3b82f6;
+            }
+            .header-left h1 {
+              font-size: 24pt;
+              color: #3b82f6;
+              font-weight: 700;
+              margin-bottom: 5px;
+            }
+            .header-left p {
+              color: #6b7280;
+              font-size: 9pt;
+            }
+            .header-right {
+              text-align: right;
+            }
+            .header-right .creator-name {
+              font-size: 16pt;
+              font-weight: 600;
+              color: #1a1a1a;
+              margin-bottom: 5px;
+            }
+            .header-right .period {
+              color: #6b7280;
+              font-size: 9pt;
+            }
+            .summary-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+              margin-bottom: 30px;
+            }
+            .summary-card {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 20px;
+              border-radius: 12px;
+              color: white;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .summary-card.green {
+              background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            }
+            .summary-card.orange {
+              background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            }
+            .summary-card.blue {
+              background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+            }
+            .summary-label {
+              font-size: 8pt;
+              opacity: 0.9;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 8px;
+            }
+            .summary-value {
+              font-size: 20pt;
+              font-weight: 700;
+            }
+            .section {
+              margin-bottom: 30px;
+              page-break-inside: avoid;
+            }
+            .section-title {
+              font-size: 14pt;
+              font-weight: 600;
+              color: #1a1a1a;
+              margin-bottom: 15px;
+              padding-bottom: 8px;
+              border-bottom: 2px solid #e5e7eb;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 15px;
+              font-size: 9pt;
+            }
+            thead {
+              background: #f9fafb;
+            }
+            th {
+              text-align: left;
+              padding: 12px 8px;
+              font-weight: 600;
+              color: #374151;
+              border-bottom: 2px solid #e5e7eb;
+            }
+            td {
+              padding: 10px 8px;
+              border-bottom: 1px solid #f3f4f6;
+            }
+            tbody tr:hover {
+              background: #f9fafb;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .amount {
+              font-weight: 600;
+              font-variant-numeric: tabular-nums;
+            }
+            .positive { color: #059669; }
             .negative { color: #dc2626; }
-            .warning { color: #ea580c; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-            th { background: #f8fafc; font-weight: bold; }
-            .amount { text-align: right; font-weight: bold; }
-            .commission { color: #dc2626; }
-            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; font-size: 12px; }
-            .section { margin: 40px 0; }
-            .section-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #2563eb; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-            .stock-status { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-            .stock-available { background: #dcfce7; color: #166534; }
-            .stock-low { background: #fef3c7; color: #92400e; }
-            .stock-out { background: #fecaca; color: #991b1b; }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              text-align: center;
+              font-size: 8pt;
+              color: #9ca3af;
+            }
+            @media print {
+              body { 
+                background: white;
+              }
+              .summary-card {
+                break-inside: avoid;
+              }
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="shop-name">${settings.shopName}</div>
-            <div class="report-title">Rapport complet</div>
-            <div class="period">
-              ${selectedCreator} - ${getPeriodLabel()}
+          <div class="container">
+            <div class="header">
+              <div class="header-left">
+                <h1>${settings.shopName}</h1>
+                <p>${settings.shopSubtitle}</p>
+              </div>
+              <div class="header-right">
+                <div class="creator-name">${selectedCreator}</div>
+                <div class="period">${getPeriodLabel()}</div>
+              </div>
             </div>
-          </div>
 
-          <!-- Résumé des ventes -->
-          <div class="section">
-            <div class="section-title">📊 Résumé des ventes</div>
-            <div class="summary">
-              <div class="summary-card">
-                <div class="summary-label">Nombre de ventes</div>
+            <div class="summary-grid">
+              <div class="summary-card blue">
+                <div class="summary-label">Ventes</div>
                 <div class="summary-value">${totalSales}</div>
               </div>
-              <div class="summary-card">
-                <div class="summary-label">Chiffre d'affaires brut</div>
-                <div class="summary-value positive">${totalRevenue.toFixed(2)}€</div>
-              </div>
-              <div class="summary-card">
-                <div class="summary-label">Commission (${settings.commissionRate}%)</div>
-                <div class="summary-value negative">-${totalCommission.toFixed(2)}€</div>
-              </div>
-              <div class="summary-card">
+              <div class="summary-card green">
                 <div class="summary-label">Net à verser</div>
-                <div class="summary-value positive">${netAmount.toFixed(2)}€</div>
+                <div class="summary-value">${netAmount.toFixed(2)}€</div>
               </div>
-            </div>
-          </div>
-
-          <!-- Résumé du stock -->
-          <div class="section">
-            <div class="section-title">📦 État du stock (au ${new Date().toLocaleDateString("fr-FR")})</div>
-            <div class="summary">
-              <div class="summary-card">
+              <div class="summary-card orange">
                 <div class="summary-label">Articles en stock</div>
                 <div class="summary-value">${totalStockItems}</div>
               </div>
               <div class="summary-card">
-                <div class="summary-label">Valeur du stock</div>
-                <div class="summary-value positive">${totalStockValue.toFixed(2)}€</div>
-              </div>
-              <div class="summary-card">
-                <div class="summary-label">Stock bas</div>
-                <div class="summary-value warning">${lowStockItems.length}</div>
-              </div>
-              <div class="summary-card">
-                <div class="summary-label">Ruptures</div>
-                <div class="summary-value negative">${outOfStockItems.length}</div>
+                <div class="summary-label">Valeur stock</div>
+                <div class="summary-value">${totalStockValue.toFixed(2)}€</div>
               </div>
             </div>
-          </div>
 
-          ${
-            totalSales > 0
-              ? `
-          <!-- Détail des ventes -->
-          <div class="section">
-            <div class="section-title">💰 Détail des ventes</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Paiement</th>
-                  <th class="amount">Prix</th>
-                  <th class="amount">Commission</th>
-                  <th class="amount">Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${creatorSales
-                  .map((sale) => {
-                    const price = Number.parseFloat(sale.prix || "0")
-                    const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
-                    const commission = isNotCash ? price * (settings.commissionRate / 100) : 0
-                    const net = price - commission
+            ${
+              totalSales > 0
+                ? `
+            <div class="section">
+              <div class="section-title">💰 Détail des ventes</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Paiement</th>
+                    <th class="text-right">Prix</th>
+                    <th class="text-right">Commission</th>
+                    <th class="text-right">Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${creatorSales
+                    .map((sale) => {
+                      const price = Number.parseFloat(sale.prix || "0")
+                      const isNotCash = sale.paiement?.toLowerCase() !== "espèces"
+                      const commission = isNotCash ? price * (settings.commissionRate / 100) : 0
+                      const net = price - commission
 
-                    return `
-                      <tr>
-                        <td>${new Date(sale.date).toLocaleDateString("fr-FR")}</td>
-                        <td>${sale.description}</td>
-                        <td>${sale.paiement}</td>
-                        <td class="amount">${price.toFixed(2)}€</td>
-                        <td class="amount commission">${commission > 0 ? "-" + commission.toFixed(2) + "€" : "0€"}</td>
-                        <td class="amount">${net.toFixed(2)}€</td>
-                      </tr>
-                    `
-                  })
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-          `
-              : ""
-          }
+                      return `
+                        <tr>
+                          <td>${new Date(sale.date).toLocaleDateString("fr-FR")}</td>
+                          <td>${sale.description}</td>
+                          <td>${sale.paiement}</td>
+                          <td class="text-right amount">${price.toFixed(2)}€</td>
+                          <td class="text-right amount negative">${commission > 0 ? "-" + commission.toFixed(2) + "€" : "0€"}</td>
+                          <td class="text-right amount positive">${net.toFixed(2)}€</td>
+                        </tr>
+                      `
+                    })
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+            `
+                : ""
+            }
 
-          ${
-            totalStockItems > 0
-              ? `
-          <!-- Détail du stock -->
-          <div class="section">
-            <div class="section-title">📋 Détail du stock</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Article</th>
-                  <th>Catégorie</th>
-                  <th class="amount">Prix unitaire</th>
-                  <th class="amount">Quantité</th>
-                  <th class="amount">Valeur</th>
-                  <th>Statut</th>
-                  <th>SKU</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${creatorStock
-                  .map((item) => {
-                    const quantity = Number.parseInt(item.quantity)
-                    const price = Number.parseFloat(item.price)
-                    const threshold = Number.parseInt(item.lowStockThreshold || "0")
-                    const value = quantity * price
+            ${
+              totalStockItems > 0
+                ? `
+            <div class="section">
+              <div class="section-title">📦 Inventaire</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Article</th>
+                    <th>Catégorie</th>
+                    <th class="text-right">Prix</th>
+                    <th class="text-right">Quantité</th>
+                    <th class="text-right">Valeur</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${creatorStock
+                    .map((item) => {
+                      const quantity = Number.parseInt(item.quantity)
+                      const price = Number.parseFloat(item.price)
+                      const value = quantity * price
 
-                    let status = "Disponible"
-                    let statusClass = "stock-available"
+                      return `
+                        <tr>
+                          <td>${item.article}</td>
+                          <td>${item.category}</td>
+                          <td class="text-right amount">${price.toFixed(2)}€</td>
+                          <td class="text-right">${quantity}</td>
+                          <td class="text-right amount">${value.toFixed(2)}€</td>
+                        </tr>
+                      `
+                    })
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+            `
+                : ""
+            }
 
-                    if (quantity === 0) {
-                      status = "Rupture"
-                      statusClass = "stock-out"
-                    } else if (quantity <= threshold) {
-                      status = "Stock bas"
-                      statusClass = "stock-low"
-                    }
-
-                    return `
-                      <tr>
-                        <td>${item.article}</td>
-                        <td>${item.category}</td>
-                        <td class="amount">${price.toFixed(2)}€</td>
-                        <td class="amount">${quantity}</td>
-                        <td class="amount">${value.toFixed(2)}€</td>
-                        <td><span class="stock-status ${statusClass}">${status}</span></td>
-                        <td>${item.sku}</td>
-                      </tr>
-                    `
-                  })
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-          `
-              : ""
-          }
-
-          <div class="footer">
-            <p>Rapport généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}</p>
-            <p>${settings.shopName} - ${settings.shopSubtitle}</p>
+            <div class="footer">
+              <p>Document généré le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}</p>
+              <p>${settings.shopName}</p>
+            </div>
           </div>
         </body>
         </html>
       `
 
       if (format === "html") {
-        // Ouvrir dans une nouvelle fenêtre pour prévisualisation
         const newWindow = window.open("", "_blank")
         if (newWindow) {
           newWindow.document.write(htmlContent)
           newWindow.document.close()
         }
       } else {
-        // Pour PDF, on utilise la fonction d'impression du navigateur
         const newWindow = window.open("", "_blank")
         if (newWindow) {
           newWindow.document.write(htmlContent)
           newWindow.document.close()
-          newWindow.print()
+          setTimeout(() => newWindow.print(), 250)
         }
       }
     } catch (error) {
@@ -313,7 +380,6 @@ export function PDFGenerator() {
     }
   }
 
-  // Calculer les statistiques pour l'aperçu
   const getPreviewStats = () => {
     if (!selectedCreator) return null
 
@@ -356,7 +422,7 @@ export function PDFGenerator() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Génération de rapports</h2>
-        <p className="text-muted-foreground">Créez des rapports PDF ou HTML complets avec ventes et stock</p>
+        <p className="text-muted-foreground">Créez des rapports PDF élégants au format A4</p>
       </div>
 
       <Card>
@@ -365,7 +431,7 @@ export function PDFGenerator() {
             <FileText className="h-5 w-5" />
             Paramètres du rapport
           </CardTitle>
-          <CardDescription>Sélectionnez le créateur et la période pour générer le rapport complet</CardDescription>
+          <CardDescription>Sélectionnez le créateur et la période</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -434,7 +500,7 @@ export function PDFGenerator() {
               <div>
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <Eye className="h-4 w-4" />
-                  Aperçu du rapport - {getPeriodLabel()}
+                  Aperçu - {getPeriodLabel()}
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="bg-muted p-3 rounded-lg">
@@ -442,24 +508,12 @@ export function PDFGenerator() {
                     <div className="text-xl font-bold">{previewStats.salesCount}</div>
                   </div>
                   <div className="bg-muted p-3 rounded-lg">
-                    <div className="text-sm text-muted-foreground">CA Net</div>
+                    <div className="text-sm text-muted-foreground">Net à verser</div>
                     <div className="text-xl font-bold text-green-600">{previewStats.netAmount.toFixed(2)}€</div>
                   </div>
                   <div className="bg-muted p-3 rounded-lg">
                     <div className="text-sm text-muted-foreground">Articles stock</div>
                     <div className="text-xl font-bold text-blue-600">{previewStats.stockItems}</div>
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Valeur stock</div>
-                    <div className="text-xl font-bold text-purple-600">{previewStats.stockValue.toFixed(2)}€</div>
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <div className="text-sm text-muted-foreground">CA Brut</div>
-                    <div className="text-xl font-bold">{previewStats.totalRevenue.toFixed(2)}€</div>
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Commission</div>
-                    <div className="text-xl font-bold text-red-600">-{previewStats.totalCommission.toFixed(2)}€</div>
                   </div>
                 </div>
               </div>
@@ -477,7 +531,7 @@ export function PDFGenerator() {
               variant="outline"
             >
               <Eye className="h-4 w-4 mr-2" />
-              Aperçu HTML
+              Aperçu
             </Button>
             <Button
               onClick={() => generateReport("pdf")}
@@ -486,29 +540,14 @@ export function PDFGenerator() {
               }
             >
               <Download className="h-4 w-4 mr-2" />
-              {generating ? "Génération..." : "Générer PDF"}
+              {generating ? "Génération..." : "Imprimer PDF"}
             </Button>
           </div>
 
           {!selectedCreator && (
             <Alert>
               <Calendar className="h-4 w-4" />
-              <AlertDescription>Veuillez sélectionner un créateur pour générer le rapport.</AlertDescription>
-            </Alert>
-          )}
-
-          {dateRange === "custom" && (!customStartDate || !customEndDate) && (
-            <Alert>
-              <Calendar className="h-4 w-4" />
-              <AlertDescription>
-                Veuillez sélectionner une date de début et de fin pour la période personnalisée.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {selectedCreator && previewStats?.salesCount === 0 && previewStats?.stockItems === 0 && (
-            <Alert>
-              <AlertDescription>Aucune donnée trouvée pour ce créateur sur cette période.</AlertDescription>
+              <AlertDescription>Veuillez sélectionner un créateur.</AlertDescription>
             </Alert>
           )}
         </CardContent>
