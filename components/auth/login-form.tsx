@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth"
-import { Lock, User, AlertCircle, Eye, EyeOff, Shield } from "lucide-react"
+import { Lock, User, AlertCircle, Eye, EyeOff, Shield, RefreshCw } from "lucide-react"
 
 export function LoginForm() {
   const [username, setUsername] = useState("")
@@ -17,7 +17,7 @@ export function LoginForm() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const login = useAuth((state) => state.login)
+  const { login, resetToDefault } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,18 +43,29 @@ export function LoginForm() {
     }
   }
 
-  const quickLogin = () => {
-    console.log("🚀 Connexion rapide")
-    setUsername("setup")
-    setPassword("test")
+  const quickLogin = (user: string, pass: string) => {
+    console.log("🚀 Connexion rapide:", user)
+    setUsername(user)
+    setPassword(pass)
     setError("")
+    setIsLoading(true)
 
     setTimeout(() => {
-      const success = login("setup", "test")
+      const success = login(user, pass)
       if (!success) {
         setError("Échec de la connexion rapide")
       }
-    }, 100)
+      setIsLoading(false)
+    }, 300)
+  }
+
+  const handleReset = () => {
+    console.log("🔄 Réinitialisation demandée")
+    resetToDefault()
+    setError("")
+    setUsername("")
+    setPassword("")
+    window.location.reload()
   }
 
   return (
@@ -137,23 +148,43 @@ export function LoginForm() {
             </Button>
           </form>
 
-          <div className="pt-4 border-t">
+          <div className="pt-4 border-t space-y-2">
+            <p className="text-sm font-medium text-slate-900 text-center mb-3">🔑 Connexion rapide</p>
             <Button
-              onClick={quickLogin}
+              onClick={() => quickLogin("setup", "test")}
               variant="outline"
               className="w-full border-2 border-blue-200 hover:bg-blue-50 bg-transparent"
+              disabled={isLoading}
             >
-              🚀 Connexion rapide (setup / test)
+              👤 setup / test (Admin)
+            </Button>
+            <Button
+              onClick={() => quickLogin("admin", "admin")}
+              variant="outline"
+              className="w-full border-2 border-green-200 hover:bg-green-50 bg-transparent"
+              disabled={isLoading}
+            >
+              👤 admin / admin (Admin)
+            </Button>
+            <Button
+              onClick={() => quickLogin("demo", "demo")}
+              variant="outline"
+              className="w-full border-2 border-purple-200 hover:bg-purple-50 bg-transparent"
+              disabled={isLoading}
+            >
+              👤 demo / demo (User)
+            </Button>
+          </div>
+
+          <div className="pt-4 border-t">
+            <Button onClick={handleReset} variant="ghost" className="w-full text-slate-600 hover:bg-slate-100">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Réinitialiser l'authentification
             </Button>
           </div>
 
           <div className="text-center space-y-2">
             <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3">🔒 Session sécurisée de 8 heures</div>
-            <div className="text-xs text-slate-600 bg-blue-50 rounded-lg p-3 border border-blue-200">
-              <div className="font-semibold mb-1">Identifiants par défaut:</div>
-              <div className="font-mono">Utilisateur: setup</div>
-              <div className="font-mono">Mot de passe: test</div>
-            </div>
           </div>
         </CardContent>
       </Card>

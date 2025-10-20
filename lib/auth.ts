@@ -28,35 +28,61 @@ interface AuthState {
   updatePassword: (userId: string, newPassword: string) => boolean
   deleteUser: (userId: string) => boolean
   getAllUsers: () => User[]
+  resetToDefault: () => void
 }
 
 const SESSION_DURATION = 8 * 60 * 60 * 1000 // 8 heures
 
-const INITIAL_USER: User = {
-  id: "temp-admin",
-  username: "setup",
-  password: "test",
-  displayName: "Configuration Initiale",
-  role: "admin",
-  createdAt: new Date().toISOString(),
-}
+const DEFAULT_USERS: User[] = [
+  {
+    id: "admin-1",
+    username: "setup",
+    password: "test",
+    displayName: "Administrateur",
+    role: "admin",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "admin-2",
+    username: "admin",
+    password: "admin",
+    displayName: "Admin Principal",
+    role: "admin",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "user-1",
+    username: "demo",
+    password: "demo",
+    displayName: "Utilisateur Démo",
+    role: "user",
+    createdAt: new Date().toISOString(),
+  },
+]
 
 export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
       isAuthenticated: false,
       currentUser: null,
-      users: [INITIAL_USER],
+      users: DEFAULT_USERS,
       sessionExpiry: null,
 
       login: (username: string, password: string) => {
         console.log("🔐 Tentative de connexion:", { username, password })
 
         const { users } = get()
-        console.log("👥 Utilisateurs disponibles:", users)
+        console.log(
+          "👥 Utilisateurs disponibles:",
+          users.map((u) => ({ id: u.id, username: u.username })),
+        )
 
-        const user = users.find((u) => u.username === username && u.password === password)
-        console.log("✅ Utilisateur trouvé:", user)
+        const user = users.find((u) => {
+          console.log(`Comparaison: ${u.username} === ${username} && ${u.password} === ${password}`)
+          return u.username === username && u.password === password
+        })
+
+        console.log("✅ Utilisateur trouvé:", user ? { id: user.id, username: user.username } : "AUCUN")
 
         if (user) {
           const expiry = Date.now() + SESSION_DURATION
@@ -70,6 +96,10 @@ export const useAuth = create<AuthState>()(
           }))
 
           console.log("✅ Connexion réussie!")
+          console.log("État après connexion:", {
+            isAuthenticated: true,
+            currentUser: updatedUser.username,
+          })
           return true
         }
 
@@ -193,9 +223,20 @@ export const useAuth = create<AuthState>()(
       getAllUsers: () => {
         return get().users
       },
+
+      resetToDefault: () => {
+        console.log("🔄 Réinitialisation aux paramètres par défaut")
+        set({
+          isAuthenticated: false,
+          currentUser: null,
+          users: DEFAULT_USERS,
+          sessionExpiry: null,
+        })
+      },
     }),
     {
       name: "auth-storage",
+      version: 1,
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         currentUser: state.currentUser,

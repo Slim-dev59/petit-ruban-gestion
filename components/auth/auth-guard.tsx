@@ -23,10 +23,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
       setIsLoading(false)
     }
 
-    // Vérifier immédiatement
     checkSession()
 
-    // Prolonger la session toutes les 30 minutes
     const interval = setInterval(
       () => {
         console.log("⏰ Vérification périodique de la session")
