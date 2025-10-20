@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,17 +24,37 @@ export function LoginForm() {
     setIsLoading(true)
     setError("")
 
+    console.log("📝 Formulaire soumis avec:", { username, password })
+
     try {
       const success = login(username.trim(), password)
 
       if (!success) {
         setError("Nom d'utilisateur ou mot de passe incorrect")
+        console.log("❌ Échec de connexion")
+      } else {
+        console.log("✅ Connexion réussie depuis le formulaire")
       }
     } catch (err) {
+      console.error("💥 Erreur lors de la connexion:", err)
       setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const quickLogin = () => {
+    console.log("🚀 Connexion rapide")
+    setUsername("setup")
+    setPassword("test")
+    setError("")
+
+    setTimeout(() => {
+      const success = login("setup", "test")
+      if (!success) {
+        setError("Échec de la connexion rapide")
+      }
+    }, 100)
   }
 
   return (
@@ -69,6 +88,7 @@ export function LoginForm() {
                   className="pl-10 text-slate-900 border-slate-300 focus:border-blue-500"
                   placeholder="Entrez votre nom d'utilisateur"
                   required
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -87,6 +107,7 @@ export function LoginForm() {
                   className="pl-10 pr-10 text-slate-900 border-slate-300 focus:border-blue-500"
                   placeholder="Entrez votre mot de passe"
                   required
+                  autoComplete="current-password"
                 />
                 <Button
                   type="button"
@@ -116,8 +137,23 @@ export function LoginForm() {
             </Button>
           </form>
 
-          <div className="text-center text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
-            🔒 Connexion sécurisée avec session de 8 heures
+          <div className="pt-4 border-t">
+            <Button
+              onClick={quickLogin}
+              variant="outline"
+              className="w-full border-2 border-blue-200 hover:bg-blue-50 bg-transparent"
+            >
+              🚀 Connexion rapide (setup / test)
+            </Button>
+          </div>
+
+          <div className="text-center space-y-2">
+            <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3">🔒 Session sécurisée de 8 heures</div>
+            <div className="text-xs text-slate-600 bg-blue-50 rounded-lg p-3 border border-blue-200">
+              <div className="font-semibold mb-1">Identifiants par défaut:</div>
+              <div className="font-mono">Utilisateur: setup</div>
+              <div className="font-mono">Mot de passe: test</div>
+            </div>
           </div>
         </CardContent>
       </Card>

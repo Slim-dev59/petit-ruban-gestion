@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { useAuth } from "@/lib/auth"
 import { LoginForm } from "./login-form"
@@ -15,15 +14,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    console.log("🛡️ AuthGuard: Vérification initiale")
+    console.log("- isAuthenticated:", isAuthenticated)
+
     const checkSession = () => {
-      isSessionValid()
+      const valid = isSessionValid()
+      console.log("- Session valide:", valid)
       setIsLoading(false)
     }
 
+    // Vérifier immédiatement
     checkSession()
 
+    // Prolonger la session toutes les 30 minutes
     const interval = setInterval(
       () => {
+        console.log("⏰ Vérification périodique de la session")
         if (isAuthenticated && isSessionValid()) {
           extendSession()
         }
@@ -35,6 +41,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [isAuthenticated, isSessionValid, extendSession])
 
   if (isLoading) {
+    console.log("⏳ AuthGuard: Chargement...")
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
@@ -46,8 +53,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   if (!isAuthenticated || !isSessionValid()) {
+    console.log("🚫 AuthGuard: Non authentifié, affichage du formulaire de connexion")
     return <LoginForm />
   }
 
+  console.log("✅ AuthGuard: Authentifié, affichage du contenu")
   return <>{children}</>
 }
